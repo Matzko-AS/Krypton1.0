@@ -1,20 +1,22 @@
 .register {
+    padding: 6vw 8vw;
     width: 100%;
     background-size: cover;
     background-position:center;
+    background-image: linear-gradient(rgba(83, 111, 231, 0.5),rgba(0, 0, 0, 0.5)),url("C:\Users\maico\Desktop\APLICACION KRYPTON\Krypton1.0\src\assets\krytpn.jpg");
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items:center;
 
 }
 
 .register form{
-    background: white;
+    background: #ffff;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
     padding: 40px;
-    box-shadow: 0 8px 32px 0 blue;
+    box-shadow: 0 8px 32px 0 rgb(255, 255, 255);
     width: 100%;
     max-width: 600px;
     margin-bottom: 20px;
