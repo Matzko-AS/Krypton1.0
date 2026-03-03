@@ -1,0 +1,17 @@
+.Boton{
+   text-decoration: none;
+   font-size: 0.9rem;
+   padding: 13px 35px;
+   color: cornsilk; 
+   background-color: rgb(18, 124, 4);
+   transition: 0.3s case;
+   border-radius: 5px;
+   font-weight: 600;
+   cursor: pointer;
+   border: none;
+
+}
+
+.Boton:hover{
+    opacity: 0.9;
+}

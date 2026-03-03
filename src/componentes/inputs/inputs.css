@@ -1,0 +1,15 @@
+.inputs label{
+    font-size: 18px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+}
+
+
+.inputs input{
+    margin: 3px 0;
+    padding: 15px 10px;
+    border: lpx solid rgb(84,40,241);
+    outline: none;
+    width: 100%;
+}

@@ -1,7 +1,7 @@
 .register {
     padding: 6vw 8vw;
     width: 100%;
-    background-size: cover;
+    background-size:contain;
     background-position:center;
     background-image: linear-gradient(rgba(83, 111, 231, 0.5),rgba(0, 0, 0, 0.5)),url("C:\Users\maico\Desktop\APLICACION KRYPTON\Krypton1.0\src\assets\krytpn.jpg");
     display: flex;

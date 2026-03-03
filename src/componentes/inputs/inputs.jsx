@@ -1,8 +1,19 @@
 import React from 'react'
+import "./inputs.css"
 
-const inputs = () => {
+const inputs = ({placeholder,type,required}) => {
+  const placeholdermodificado=`${placeholder}...`
   return (
-    <div>inputs</div>
+
+    <div className='inputs'>
+      <label htmlFor=""></label>
+      <input 
+      placeholder={placeholdermodificado} 
+      type= {type || "text"}
+      required={required}
+      
+      />
+      </div>
   )
 }
 
