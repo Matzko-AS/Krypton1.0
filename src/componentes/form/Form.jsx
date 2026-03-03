@@ -39,5 +39,5 @@ const form = () => {
     </section>
   )
 }
-export default form 
-//     d             D
+
+export default form
