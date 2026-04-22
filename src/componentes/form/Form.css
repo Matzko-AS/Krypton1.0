@@ -36,3 +36,9 @@
     margin-bottom: 20px;
 
 }
+
+.error-mensaje{
+    color: red;
+    font-size: 14px;
+    margin-top: 5px;
+}

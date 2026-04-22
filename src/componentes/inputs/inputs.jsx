@@ -1,7 +1,7 @@
 import React from 'react'
 import "./inputs.css"
 
-const inputs = ({placeholder,type,required}) => {
+const inputs = ({placeholder,type,required,name,onChange}) => {
   const placeholdermodificado=`${placeholder}...`
   return (
 
@@ -11,6 +11,8 @@ const inputs = ({placeholder,type,required}) => {
       placeholder={placeholdermodificado} 
       type= {type || "text"}
       required={required}
+      name={name}
+      onChange={onChange}
       
       />
       </div>
