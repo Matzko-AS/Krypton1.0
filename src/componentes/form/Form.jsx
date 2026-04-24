@@ -1,72 +1,122 @@
-
 import "./Form.css"
 import Input from "../inputs/inputs.jsx"
 import Boton from "../boton/boton.jsx"
 import { useState } from "react"
+import { supabase } from "../../supabase/supabaseClient.js"
 
-const form = () => {
-  const[formData, setFormData]= useState({
+const Form = () => {
+  const [formData, setFormData] = useState({
     nombre: "",
     correo: "",
-    contraseña: "",
-    confirmarcontraseña:""
+    password: "",
+    confirmarPassword: "",
+    rol: "empleado"
   })
-  const[error,setError]=useState("");
-  const handleChange=(e)=>{
-    const{name,value}=e.target;
+  const [error, setError] = useState("")
+  const [cargando, setCargando] = useState(false)
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
     setFormData({
       ...formData,
-      [name]:value,
+      [name]: value,
     })
   }
-  const Handlesubmit=(e)=> {
-    e.preventDefault();
-    if (formData.contraseña !== formData.confirmarcontraseña) {
-      setError("las contraseñas no coinciden, Por favor,verificar")
-      return;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
+    if (formData.password !== formData.confirmarPassword) {
+      setError("Las contraseñas no coinciden")
+      return
     }
 
-    setError("");
+    setCargando(true)
+    setError("")
+
+    const { data, error: authError } = await supabase.auth.signUp({
+      email: formData.correo,
+      password: formData.password,
+    })
+
+    if (authError) {
+      setError(authError.message)
+      setCargando(false)
+      return
+    }
+
+    const { error: dbError } = await supabase
+      .from("usuarios")
+      .insert({
+        id: data.user.id,
+        nombre: formData.nombre,
+        correo: formData.correo,
+        rol: formData.rol
+      })
+
+    if (dbError) {
+      setError(dbError.message)
+      setCargando(false)
+      return
+    }
+
+    setCargando(false)
     alert("Registro exitoso")
-    console.log("datos ingresaos:",formData)
   }
+
   return (
     <section className="register">
-       <form onSubmit={Handlesubmit} >
-            <h3>REGISTRO</h3>
-            <Input
-            placeholder ="Nombre y Apellido"
-              type="Text"
-              required
-              name="nombre"
-              onChange={handleChange}
-            />
-            <Input
-            placeholder ="Correo"
-              type="email"
-              required
-              name="correo"
-              onChange={handleChange}
-            />
-            <Input
-            placeholder ="Contraseña"  
-              type="password"
-              required
-              name="contraseña"
-              onChange={handleChange}
-            />
-            <Input
-            placeholder ="Confirma Contraseña" 
-              type="password" 
-              required
-              name="confirmarcontraseña"
-              onChange={handleChange}
-            />
-            {error && <p className="error-mensaje">{error}</p>}
-            <Boton type="Submit">Registrar</Boton>
-        </form>
+      <form onSubmit={handleSubmit}>
+        <h3>REGISTRO</h3>
+        <Input
+          placeholder="Nombre y Apellido"
+          type="text"
+          required
+          name="nombre"
+          onChange={handleChange}
+        />
+        <Input
+          placeholder="Correo"
+          type="email"
+          required
+          name="correo"
+          onChange={handleChange}
+        />
+        <Input
+          placeholder="Contraseña"
+          type="password"
+          required
+          name="password"
+          onChange={handleChange}
+        />
+        <Input
+          placeholder="Confirma Contraseña"
+          type="password"
+          required
+          name="confirmarPassword"
+          onChange={handleChange}
+        />
+
+        {/* Selector de rol */}
+        <div className="inputs">
+          <select
+            name="rol"
+            value={formData.rol}
+            onChange={handleChange}
+            required
+          >
+            <option value="empleado">Empleado</option>
+            <option value="diseñador">Diseñador</option>
+          </select>
+        </div>
+
+        {error && <p className="error-mensaje">{error}</p>}
+        <Boton type="submit" disabled={cargando}>
+          {cargando ? "Registrando..." : "Registrar"}
+        </Boton>
+      </form>
     </section>
   )
 }
 
-export default form
+export default Form
