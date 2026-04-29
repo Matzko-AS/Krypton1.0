@@ -265,3 +265,17 @@
   color: #ff6b6b;
   border-color: rgba(255,80,80,0.3);
 }
+.btn-eliminar {
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.35);
+  color: #ef4444;
+  padding: 5px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: 0.2s;
+}
+.btn-eliminar:hover {
+  background: rgba(239,68,68,0.3);
+}
