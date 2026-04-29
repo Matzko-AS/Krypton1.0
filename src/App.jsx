@@ -1,20 +1,21 @@
-import { useState } from "react";
-import Form from "./componentes/form/Form";
-import { BrowserRouter as Router,Routes,Route} from "react-router-dom";
-import Login from "./componentes/login/login";
-function App() {
-  const [count, setCount] = useState(0);
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
+import Home from "./componentes/home/Home"
+import Login from "./componentes/login/login"
+import Form from "./componentes/form/Form"
+import DashboardEmpleado from "./componentes/dashboard/empleado/empleado"
 
+function App() {
   return (
-    <>
-      <Router>
+    <Router>
       <Routes>
-        <Route path="/" element={<Form/>}/>
-        <Route path="/login" element={<Login/>}/>        
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Form />} />
+        <Route path="/dashboard/diseñador" element={<div>Dashboard Diseñador — próximamente</div>} />
+        <Route path="/dashboard/empleado" element={<DashboardEmpleado/>}/>
       </Routes>
-      </Router>
-    </>
-  );
+    </Router>
+  )
 }
 
-export default App;
+export default App
