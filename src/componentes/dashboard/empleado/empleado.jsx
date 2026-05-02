@@ -15,10 +15,12 @@ const DashboardEmpleado = () => {
   const [mostrarModalMaterial, setMostrarModalMaterial] = useState(false)
   const [modalEditarMaterial, setModalEditarMaterial] = useState(false)
   const [materialEditar, setMaterialEditar] = useState(null)
+  const [stockDisponible, setStockDisponible] = useState(null)
 
   const materialInicial = {
   nombre: "",
   tipo_material: "",
+  subtipo: "",
   tipo: "",
   ancho: "",
   largo: "",
@@ -41,6 +43,8 @@ const [nuevoMaterial, setNuevoMaterial] = useState(materialInicial)
     perfil_impresion: "",
     configuracion: "",
     estado: "pendiente",
+    material_id: "",
+
   }
 
   const [nuevoPedido, setNuevoPedido] = useState(pedidoInicial)
@@ -72,9 +76,19 @@ const [nuevoMaterial, setNuevoMaterial] = useState(materialInicial)
     navigate("/")
   }
 
-  const handleChangePedido = (e) => {
-    const { name, value, type, checked } = e.target
-    const nuevoValor = type === "checkbox" ? checked : value
+const handleChangePedido = (e) => {
+  const { name, value, type, checked } = e.target
+  const nuevoValor = type === "checkbox" ? checked : value
+
+
+  if (name === "material_id") {
+    setNuevoPedido({ ...nuevoPedido, [name]: nuevoValor })
+    verificarStock(nuevoValor)
+    return
+  }
+
+  setNuevoPedido({ ...nuevoPedido, [name]: nuevoValor })
+
 
     // Descuento automático si cantidad > 10
     if (name === "cantidad") {
@@ -89,27 +103,48 @@ const [nuevoMaterial, setNuevoMaterial] = useState(materialInicial)
     setNuevoPedido({ ...nuevoPedido, [name]: nuevoValor })
   }
 
-  const agregarPedido = async () => {
-    if (!nuevoPedido.cliente_nombre) return
+const agregarPedido = async () => {
+  if (!nuevoPedido.cliente_nombre) return
 
-    const { data: userData } = await supabase.auth.getUser()
+  const { data: userData } = await supabase.auth.getUser()
 
-    const { error } = await supabase
-      .from("pedidos")
+  // Determinar estado según stock
+  const estadoFinal = stockDisponible && stockDisponible.stock > 0
+    ? "pendiente"
+    : "sin_material"
+
+  const { data: pedidoCreado, error } = await supabase
+    .from("pedidos")
+    .insert({
+      usuario_id: userData.user.id,
+      ...nuevoPedido,
+      cantidad: parseInt(nuevoPedido.cantidad),
+      estado: estadoFinal
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error(error.message)
+    return
+  }
+
+  // Registrar en pedido_materiales si hay material seleccionado
+  if (nuevoPedido.material_id && pedidoCreado) {
+    await supabase
+      .from("pedido_materiales")
       .insert({
-        usuario_id: userData.user.id,
-        ...nuevoPedido,
+        pedido_id: pedidoCreado.id,
+        material_id: nuevoPedido.material_id,
         cantidad: parseInt(nuevoPedido.cantidad)
       })
-
-    if (!error) {
-      setMostrarModal(false)
-      setNuevoPedido(pedidoInicial)
-      cargarPedidos()
-    } else {
-      console.error(error.message)
-    }
   }
+
+  setMostrarModal(false)
+  setNuevoPedido(pedidoInicial)
+  setStockDisponible(null)
+  cargarPedidos()
+}
 
   const abrirEditar = (pedido) => {
   setPedidoEditar({ ...pedido })
@@ -175,6 +210,7 @@ const handleChangeMaterial = (e) => {
     return
   }
 
+
   setNuevoMaterial({ ...nuevoMaterial, [name]: value })
 }
 
@@ -199,6 +235,7 @@ const agregarMaterial = async () => {
     console.error(error.message)
   }
 }
+
 const abrirEditarMaterial = (material) => {
   setMaterialEditar({ ...material })
   setModalEditarMaterial(true)
@@ -221,6 +258,7 @@ const guardarEdicionMaterial = async () => {
       stock: parseFloat(materialEditar.stock),
       unidad: materialEditar.unidad,
       estado: materialEditar.estado,
+      subtipo: materialEditar.subtipo || null,
     })
     .eq("id", materialEditar.id)
 
@@ -247,6 +285,21 @@ const eliminarMaterial = async (id) => {
   } else {
     console.error(error.message)
   }
+}
+
+
+const verificarStock = async (materialId) => {
+  if (!materialId) {
+    setStockDisponible(null)
+    return
+  }
+  const { data } = await supabase
+    .from("materiales")
+    .select("stock, nombre, unidad, estado")
+    .eq("id", materialId)
+    .single()
+
+  if (data) setStockDisponible(data)
 }
 
 
@@ -396,9 +449,9 @@ const eliminarMaterial = async (id) => {
                 <th>Largo</th>
                 <th>Grosor</th>
                 <th>Stock</th>
-                <th>Unidad</th>
                 <th>Estado</th>
-                <th>Acciones</th> 
+                <th>Tipo Laminacion</th>
+                <th>Subtipo</th> 
               </tr>
             </thead>
           <tbody>
@@ -410,7 +463,7 @@ const eliminarMaterial = async (id) => {
                 <td>{mat.largo ? `${mat.largo} m` : "—"}</td>
                 <td>{mat.grosor ? `${mat.grosor} mm` : "—"}</td>
                 <td>{mat.stock}</td>
-                <td>{mat.unidad}</td>
+                <td>{mat.subtipo || "—"}</td>
                 <td>
                   <span className="badge" style={{
                     background:
@@ -483,6 +536,33 @@ const eliminarMaterial = async (id) => {
                   <span className="descuento-aviso">✅ Aplica descuento por volumen</span>
                 )}
               </div>
+              <div className="modal-field modal-field-full">
+                <label>Material</label>
+                <select
+                  name="material_id"
+                  value={nuevoPedido.material_id || ""}
+                  onChange={handleChangePedido}
+                >
+                  <option value="">Seleccionar material...</option>
+                  {materiales.map((mat) => (
+                    <option key={mat.id} value={mat.id}>
+                      {mat.nombre} {mat.subtipo ? `(${mat.subtipo})` : ""} — Stock: {mat.stock} {mat.unidad}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Aviso de stock */}
+                {stockDisponible && stockDisponible.stock > 0 && (
+                  <span style={{ fontSize: "12px", color: "#22c55e", marginTop: "4px" }}>
+                    ✅ Stock disponible: {stockDisponible.stock} {stockDisponible.unidad}
+                  </span>
+                )}
+                {stockDisponible && stockDisponible.stock === 0 && (
+                  <span style={{ fontSize: "12px", color: "#ef4444", marginTop: "4px" }}>
+                    ⚠️ Sin stock disponible. El pedido se registrará como "sin_material"
+                  </span>
+                )}
+              </div>
 
               <div className="modal-field">
                 <label>Prioridad</label>
@@ -493,16 +573,7 @@ const eliminarMaterial = async (id) => {
                 </select>
               </div>
 
-              <div className="modal-field">
-                <label>Perfil de impresión</label>
-                <input
-                  type="text"
-                  name="perfil_impresion"
-                  placeholder="Ej: CMYK, RGB..."
-                  value={nuevoPedido.perfil_impresion}
-                  onChange={handleChangePedido}
-                />
-              </div>
+
 
               <div className="modal-field">
                 <label>Configuración</label>
@@ -544,10 +615,10 @@ const eliminarMaterial = async (id) => {
         </div>
       )}
       {/* MODAL EDITAR PEDIDO */}
-{modalEditar && pedidoEditar && (
-  <div className="modal-overlay">
-    <div className="modal">
-      <h3>Editar Pedido — {pedidoEditar.cliente_nombre}</h3>
+      {modalEditar && pedidoEditar && (
+         <div className="modal-overlay">
+         <div className="modal">
+           <h3>Editar Pedido — {pedidoEditar.cliente_nombre}</h3>
 
       <div className="modal-grid">
         <div className="modal-field">
@@ -713,7 +784,10 @@ const eliminarMaterial = async (id) => {
             </select>
           </div>
         )}
-
+        {(nuevoMaterial.tipo_material ==="lona"  ||
+          nuevoMaterial.tipo_material === "lona_translucida" ||
+          nuevoMaterial.tipo_material === "vinil" ||
+          nuevoMaterial.tipo_material === "laminacion") && (
         <div className="modal-field">
           <label>Rollos disponibles</label>
           <input
@@ -725,15 +799,35 @@ const eliminarMaterial = async (id) => {
             onChange={handleChangeMaterial}
           />
         </div>
+        )}
 
-        <div className="modal-field">
-          <label>Unidad</label>
-          <select name="unidad" value={nuevoMaterial.unidad} onChange={handleChangeMaterial}>
-            <option value="metros">Metros</option>
-            <option value="unidades">Unidades</option>
-            <option value="cm">Centímetros</option>
-          </select>
-        </div>
+          {(nuevoMaterial.tipo_material ==="pvc"  ||
+            nuevoMaterial.tipo_material === "acrilico") && (   
+          <div className="modal-field">
+          <label>Planchas disponibles</label>
+          <input
+            type="number"
+            name="stock"
+            min="0"
+            placeholder="Cantidad"
+            value={nuevoMaterial.stock}
+            onChange={handleChangeMaterial}
+          />          
+          </div>
+          )}
+
+          {/* Subtipo — solo para vinil y laminacion */}
+          {(nuevoMaterial.tipo_material === "vinil" ||
+            nuevoMaterial.tipo_material === "laminacion") && (
+            <div className="modal-field">
+              <label>Subtipo</label>
+              <select name="subtipo" value={nuevoMaterial.subtipo || ""} onChange={handleChangeMaterial}>
+                <option value="">Seleccionar...</option>
+                <option value="brillo">Brillo</option>
+                <option value="mate">Mate</option>
+              </select>
+            </div>
+          )}
 
         <div className="modal-field">
           <label>Estado</label>
@@ -753,6 +847,7 @@ const eliminarMaterial = async (id) => {
       </div>
     </div>
   </div>
+
 )}
 
 {/* MODAL EDITAR MATERIAL */}
@@ -783,7 +878,6 @@ const eliminarMaterial = async (id) => {
             <option value="laminacion">Laminación</option>
           </select>
         </div>
-
         <div className="modal-field">
           <label>Ancho (cm)</label>
           <input
@@ -824,16 +918,6 @@ const eliminarMaterial = async (id) => {
             onChange={handleChangeEditarMaterial}
           />
         </div>
-
-        <div className="modal-field">
-          <label>Unidad</label>
-          <select name="unidad" value={materialEditar.unidad} onChange={handleChangeEditarMaterial}>
-            <option value="metros">Metros</option>
-            <option value="unidades">Unidades</option>
-            <option value="cm">Centímetros</option>
-          </select>
-        </div>
-
         <div className="modal-field">
           <label>Estado</label>
           <select name="estado" value={materialEditar.estado} onChange={handleChangeEditarMaterial}>
@@ -842,7 +926,18 @@ const eliminarMaterial = async (id) => {
             <option value="agotado">Agotado</option>
           </select>
         </div>
-      </div>
+        </div>
+            {(materialEditar.tipo_material === "vinil" ||
+        materialEditar.tipo_material === "laminacion") && (
+        <div className="modal-field">
+          <label>Subtipo</label>
+          <select name="subtipo" value={materialEditar.subtipo || ""} onChange={handleChangeEditarMaterial}>
+            <option value="">Seleccionar...</option>
+            <option value="brillo">Brillo</option>
+            <option value="mate">Mate</option>
+          </select>
+        </div>
+      )}
 
       <div className="modal-buttons">
         <button onClick={guardarEdicionMaterial} className="btn-guardar">
@@ -855,10 +950,7 @@ const eliminarMaterial = async (id) => {
     </div>
   </div>
 )}
-
-
     </div>
   )
 }
-
 export default DashboardEmpleado
