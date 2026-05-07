@@ -22,6 +22,9 @@ const DashboardDisenador = () => {
   const [pedidoIdDiseno, setPedidoIdDiseno] = useState("")
   const [subiendoArchivo, setSubiendoArchivo] = useState(false)
   const [errorSubida, setErrorSubida] = useState("")
+  const [modalVerPedido, setModalVerPedido] = useState(false);
+  const [pedidoVer, setPedidoVer] = useState(null);
+  const [procesando, setProcesando] = useState(false);
 
   const navigate = useNavigate()
 
@@ -79,6 +82,12 @@ const DashboardDisenador = () => {
       setDisenos(data ?? [])
     }
   }
+
+  const cambiarsesion = async()=>{
+    await supabase.auth.signOut()
+    navigate("/login")
+  }
+
 
   const cerrarSesion = async () => {
     await supabase.auth.signOut()
@@ -252,7 +261,7 @@ const DashboardDisenador = () => {
   const aprobarDiseno = async (diseno) => {
     await supabase
       .from("pedidos")
-      .update({ estado: "aprobado" })
+      .update({ estado: "en_impresion" })
       .eq("id", diseno.pedido_id)
     cargarDisenos()
     cargarPedidos()
@@ -268,7 +277,81 @@ const DashboardDisenador = () => {
     cargarDisenos()
     cargarPedidos()
   }
+  // --- FUNCIONES DE ACCIÓN ---
+  const eliminarPedido = async (pedido) => {
+    const confirmar = window.confirm(`¿Estás seguro de que quieres eliminar el pedido de "${pedido.cliente_nombre}"? Esta acción no se puede deshacer.`);
+    if (!confirmar) return;
 
+    setProcesando(true);
+    try {
+      // 1. Limpiar archivos del Storage si existen diseños vinculados
+      if (pedido.disenos && pedido.disenos.length > 0) {
+        for (const diseno of pedido.disenos) {
+          if (diseno.hash_archivo) {
+            await supabase.storage.from("disenos").remove([diseno.hash_archivo]);
+          }
+        }
+      }
+      // 2. Eliminar de la base de datos
+      const { error } = await supabase.from("pedidos").delete().eq("id", pedido.id);
+      if (error) throw error;
+
+      alert("Pedido eliminado correctamente");
+      cargarPedidos(); // Recargar la lista
+    } catch (error) {
+      console.error("Error al eliminar:", error.message);
+      alert("No se pudo eliminar el pedido");
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const finalizarPedido = async (pedido) => {
+  const confirmar = window.confirm(`¿Finalizar pedido de ${pedido.cliente_nombre}? Se borrarán los archivos de diseño.`);
+  if (!confirmar) return;
+
+  setProcesando(true);
+  try {
+    // 1. Borrar archivos físicos del Storage (Bucket)
+    const disenosVinc = pedido.disenos || [];
+    for (const diseno of disenosVinc) {
+      if (diseno.hash_archivo) {
+        await supabase.storage.from("disenos").remove([diseno.hash_archivo]);
+      }
+    }
+
+    // 2. SOLUCIÓN AL ERROR 400: Borrar los registros de la tabla disenos
+    // No usamos .update({ archivo_url: null }) porque la DB lo prohíbe.
+    // Al usar .delete(), eliminamos la fila y ya no hay conflicto de constraint.
+    const { error: errDiseno } = await supabase
+      .from("disenos")
+      .delete()
+      .eq("pedido_id", pedido.id);
+    
+    if (errDiseno) throw errDiseno;
+
+    // 3. Actualizar el estado del pedido a terminado
+    const { error: errPedido } = await supabase
+      .from("pedidos")
+      .update({ estado: "terminado" })
+      .eq("id", pedido.id);
+
+    if (errPedido) throw errPedido;
+
+    alert("Pedido finalizado con éxito y espacio liberado.");
+    cargarPedidos(); // Recargar la lista
+  } catch (e) {
+    console.error("Error al finalizar pedido:", e.message);
+    alert("Error: " + e.message);
+  } finally {
+    setProcesando(false);
+  }
+};
+
+  const abrirVerPedido = (pedido) => {
+    setPedidoVer(pedido);
+    setModalVerPedido(true);
+  };
   // ─── HELPERS ────────────────────────────────────────────────────────
 
   const colorEstado = (estado) => {
@@ -305,7 +388,7 @@ const DashboardDisenador = () => {
             onClick={() => setSeccion("pedidos")}
           >
             Pedidos
-          </button>
+          </button> 
           <button
             className={`nav-item ${seccion === "disenos" ? "active" : ""}`}
             onClick={() => setSeccion("disenos")}
@@ -313,6 +396,9 @@ const DashboardDisenador = () => {
             Diseños
           </button>
         </nav>
+        <button className="sidebar-logout" onClick={cambiarsesion}>
+          Cambiar sesión
+          </button>
         <button className="sidebar-logout" onClick={cerrarSesion}>
           Cerrar sesión
         </button>
@@ -381,9 +467,24 @@ const DashboardDisenador = () => {
                           <td>{pedido.configuracion || "—"}</td>
                           <td>{pedido.fecha_entrega || "—"}</td>
                           <td>
-                            <button className="btn-accion" onClick={() => abrirEditar(pedido)}>
-                              Editar
-                            </button>
+                            <div style={{ display: "flex", gap: "6px" }}>
+                              <button className="btn-accion" onClick={() => abrirVerPedido(pedido)}>Ver</button>
+                              <button className="btn-accion" onClick={() => abrirEditar(pedido)}>Editar</button>
+                              <button 
+                                className="btn-eliminar" 
+                                onClick={() => eliminarPedido(pedido)} 
+                                disabled={procesando}
+                              >
+                                {procesando ? "..." : "Eliminar"}
+                              </button>
+                              <button 
+                                className="btn-finalizar" 
+                                onClick={() => finalizarPedido(pedido)} 
+                                disabled={procesando}
+                              >
+                                {procesando ? "..." : "Fin"}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -697,6 +798,25 @@ const DashboardDisenador = () => {
           </div>
         </div>
       )}
+        {/* MODAL VER DETALLES */}
+        {modalVerPedido && pedidoVer && (
+          <div className="modal-overlay" onClick={() => setModalVerPedido(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <h3>Detalles: {pedidoVer.cliente_nombre}</h3>
+              <div className="modal-grid">
+                <div className="modal-field"><label>Estado</label><p>{pedidoVer.estado}</p></div>
+                <div className="modal-field"><label>Prioridad</label><p>{pedidoVer.prioridad}</p></div>
+                <div className="modal-field"><label>Cantidad</label><p>{pedidoVer.cantidad}</p></div>
+                <div className="modal-field"><label>Contacto</label><p>{pedidoVer.cliente_contacto || "Sin contacto"}</p></div>
+                <div className="modal-field"><label>Entrega</label><p>{pedidoVer.fecha_entrega || "No definida"}</p></div>
+                <div className="modal-field-full"><label>Especificaciones</label><p>{pedidoVer.especificaciones || "Sin especificaciones"}</p></div>
+              </div>
+              <div className="modal-buttons">
+                <button className="btn-cancelar" onClick={() => setModalVerPedido(false)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* ── MODAL SUBIR DISEÑO ────────────────────────────────────── */}
       {mostrarModalDiseno && (
@@ -765,7 +885,13 @@ const DashboardDisenador = () => {
             </div>
           </div>
         </div>
-      )}
+
+        
+      )
+      
+      
+      
+      }
 
     </div>
   )

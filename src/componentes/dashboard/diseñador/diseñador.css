@@ -46,6 +46,8 @@
 .nav-item:hover { background: rgba(255,255,255,0.06); color: #ffffff; }
 .nav-item.active { background: rgba(79,110,247,0.2); color: #4f6ef7; font-weight: 600; }
 
+
+
 .sidebar-logout {
   background: transparent;
   border: 1px solid rgba(255,255,255,0.1);
@@ -288,3 +290,25 @@
   transition: border 0.2s;
 }
 .input-file:hover { border-color: #4f6ef7; }
+
+.btn-finalizar {
+  background: #14532d;
+  color: #22c55e;
+  border: 1px solid #22c55e;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btn-finalizar:hover:not(:disabled) {
+  background: #22c55e;
+  color: #0f172a;
+}
+
+.btn-finalizar:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
