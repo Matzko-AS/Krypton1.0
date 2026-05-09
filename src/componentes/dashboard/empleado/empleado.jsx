@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { supabase } from "../../../supabase/supabaseClient"
 import { useNavigate } from "react-router-dom"
+import Calculadora from "../diseñador/calculadora/Calculadora"
 import "./empleado.css"
 
 const DashboardEmpleado = () => {
@@ -23,6 +24,7 @@ const DashboardEmpleado = () => {
 
   // ── NUEVO: procesando (deshabilita botones durante operaciones async) ────
   const [procesando, setProcesando] = useState(false)
+  const [esLetreroEditar, setEsLetreroEditar] = useState(false)
 
   const materialInicial = {
     nombre: "",
@@ -51,6 +53,10 @@ const DashboardEmpleado = () => {
     configuracion: "",
     estado: "pendiente",
     material_id: "",
+    esLetrero: false,
+    letrero_tipo: "",
+    letrero_alto: "",
+    letrero_largo: "",
   }
 
   const [nuevoPedido, setNuevoPedido] = useState(pedidoInicial)
@@ -94,6 +100,19 @@ const DashboardEmpleado = () => {
     const { name, value, type, checked } = e.target
     const nuevoValor = type === "checkbox" ? checked : value
 
+    if (name === "esLetrero") {
+      setNuevoPedido({
+        ...nuevoPedido,
+        esLetrero: checked,
+        material_id: checked ? "" : nuevoPedido.material_id,
+        letrero_tipo: checked ? nuevoPedido.letrero_tipo : "",
+        letrero_alto: checked ? nuevoPedido.letrero_alto : "",
+        letrero_largo: checked ? nuevoPedido.letrero_largo : "",
+      })
+      setStockDisponible(null)
+      return
+    }
+
     if (name === "material_id") {
       setNuevoPedido({ ...nuevoPedido, [name]: nuevoValor })
       verificarStock(nuevoValor)
@@ -127,7 +146,12 @@ const DashboardEmpleado = () => {
         usuario_id: userData.user.id,
         ...nuevoPedido,
         cantidad: parseInt(nuevoPedido.cantidad),
-        estado: estadoFinal
+        estado: estadoFinal,
+        material_id: nuevoPedido.esLetrero ? null : (nuevoPedido.material_id || null),
+        letrero_tipo: nuevoPedido.esLetrero ? nuevoPedido.letrero_tipo : null,
+        letrero_alto: nuevoPedido.esLetrero ? parseFloat(nuevoPedido.letrero_alto) || null : null,
+        letrero_largo: nuevoPedido.esLetrero ? parseFloat(nuevoPedido.letrero_largo) || null : null,
+        esLetrero: undefined,
       })
       .select()
       .single()
@@ -155,6 +179,7 @@ const DashboardEmpleado = () => {
 
   const abrirEditar = (pedido) => {
     setPedidoEditar({ ...pedido })
+    setEsLetreroEditar(!!(pedido.letrero_tipo))
     setModalEditar(true)
   }
 
@@ -176,6 +201,9 @@ const DashboardEmpleado = () => {
         cliente_contacto: pedidoEditar.cliente_contacto,
         cantidad: parseInt(pedidoEditar.cantidad),
         descuento: parseInt(pedidoEditar.cantidad) > 10,
+        letrero_tipo: pedidoEditar.letrero_tipo || null,
+        letrero_alto: pedidoEditar.letrero_alto ? parseFloat(pedidoEditar.letrero_alto) : null,
+        letrero_largo: pedidoEditar.letrero_largo ? parseFloat(pedidoEditar.letrero_largo) : null,
       })
       .eq("id", pedidoEditar.id)
 
@@ -421,6 +449,12 @@ const DashboardEmpleado = () => {
           >
             Materiales
           </button>
+          <button
+            className={`nav-item ${seccion === "calculadora" ? "active" : ""}`}
+            onClick={() => setSeccion("calculadora")}
+          >
+            Calculadora
+          </button>
         </nav>
         <button className="sidebar-logout" onClick={cambiarsesion}>
           Cambiar sesión
@@ -433,7 +467,7 @@ const DashboardEmpleado = () => {
       {/* CONTENIDO PRINCIPAL */}
       <main className="dashboard-main">
         <header className="dashboard-header">
-          <h1>{seccion === "pedidos" ? "Pedidos en Producción" : "Materiales"}</h1>
+          <h1>{seccion === "pedidos" ? "Pedidos en Producción" : seccion === "materiales" ? "Materiales" : "Calculadora"}</h1>
           {seccion === "pedidos" && (
             <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>
               + Nuevo Pedido
@@ -584,6 +618,9 @@ const DashboardEmpleado = () => {
               )}
             </div>
           )}
+
+          {/* SECCIÓN CALCULADORA */}
+          {seccion === "calculadora" && <Calculadora />}
 
         </div>
       </main>
@@ -743,6 +780,19 @@ const DashboardEmpleado = () => {
               </div>
 
               <div className="modal-field modal-field-full">
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    name="esLetrero"
+                    checked={nuevoPedido.esLetrero}
+                    onChange={handleChangePedido}
+                  />
+                  ¿Es letrero?
+                </label>
+              </div>
+
+              {!nuevoPedido.esLetrero && (
+              <div className="modal-field modal-field-full">
                 <label>Material</label>
                 <select
                   name="material_id"
@@ -767,6 +817,33 @@ const DashboardEmpleado = () => {
                   </span>
                 )}
               </div>
+              )}
+
+              {nuevoPedido.esLetrero && (
+              <>
+                <div className="modal-field">
+                  <label>Tipo de letrero</label>
+                  <select name="letrero_tipo" value={nuevoPedido.letrero_tipo} onChange={handleChangePedido}>
+                    <option value="">Seleccionar...</option>
+                    <option value="luminoso">Luminoso</option>
+                    <option value="no_luminoso">No luminoso</option>
+                    <option value="backlight">Backlight</option>
+                    <option value="acrilico">Acrílico</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+                <div className="modal-field">
+                  <label>Alto (cm)</label>
+                  <input type="number" name="letrero_alto" min="0" placeholder="ej: 60"
+                    value={nuevoPedido.letrero_alto} onChange={handleChangePedido} />
+                </div>
+                <div className="modal-field">
+                  <label>Largo (cm)</label>
+                  <input type="number" name="letrero_largo" min="0" placeholder="ej: 120"
+                    value={nuevoPedido.letrero_largo} onChange={handleChangePedido} />
+                </div>
+              </>
+              )}
 
               <div className="modal-field">
                 <label>Prioridad</label>
@@ -908,11 +985,54 @@ const DashboardEmpleado = () => {
                   rows={3}
                 />
               </div>
+
+              <div className="modal-field modal-field-full">
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={esLetreroEditar}
+                    onChange={(e) => {
+                      setEsLetreroEditar(e.target.checked)
+                      if (!e.target.checked) {
+                        setPedidoEditar({ ...pedidoEditar, letrero_tipo: "", letrero_alto: "", letrero_largo: "" })
+                      }
+                    }}
+                  />
+                  ¿Es letrero?
+                </label>
+              </div>
+
+              {esLetreroEditar && (
+              <>
+                <div className="modal-field">
+                  <label>Tipo de letrero</label>
+                  <select name="letrero_tipo" value={pedidoEditar.letrero_tipo || ""} onChange={handleChangeEditar}>
+                    <option value="">Seleccionar...</option>
+                    <option value="luminoso">Luminoso</option>
+                    <option value="no_luminoso">No luminoso</option>
+                    <option value="backlight">Backlight</option>
+                    <option value="acrilico">Acrílico</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+                <div className="modal-field">
+                  <label>Alto (cm)</label>
+                  <input type="number" name="letrero_alto" min="0"
+                    value={pedidoEditar.letrero_alto || ""} onChange={handleChangeEditar} />
+                </div>
+                <div className="modal-field">
+                  <label>Largo (cm)</label>
+                  <input type="number" name="letrero_largo" min="0"
+                    value={pedidoEditar.letrero_largo || ""} onChange={handleChangeEditar} />
+                </div>
+              </>
+              )}
+
             </div>
 
             <div className="modal-buttons">
               <button onClick={guardarEdicion} className="btn-guardar">Guardar cambios</button>
-              <button onClick={() => { setModalEditar(false); setPedidoEditar(null) }} className="btn-cancelar">
+              <button onClick={() => { setModalEditar(false); setPedidoEditar(null); setEsLetreroEditar(false) }} className="btn-cancelar">
                 Cancelar
               </button>
             </div>
@@ -932,7 +1052,7 @@ const DashboardEmpleado = () => {
                 <input
                   type="text"
                   name="nombre"
-                  placeholder="Ej: Lona 160cm"
+                  placeholder="Ej: Lona"
                   value={nuevoMaterial.nombre}
                   onChange={handleChangeMaterial}
                 />

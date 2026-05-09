@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { supabase } from "../../../supabase/supabaseClient"
 import { useNavigate } from "react-router-dom"
+import Calculadora from "./calculadora/Calculadora"
 import "./diseñador.css"
 
 const DashboardDisenador = () => {
@@ -14,6 +15,7 @@ const DashboardDisenador = () => {
   const [mostrarModal, setMostrarModal] = useState(false)
   const [modalEditar, setModalEditar] = useState(false)
   const [pedidoEditar, setPedidoEditar] = useState(null)
+  const [esLetreroEditar, setEsLetreroEditar] = useState(false)
   const [stockDisponible, setStockDisponible] = useState(null)
 
   // Modales diseños
@@ -22,9 +24,9 @@ const DashboardDisenador = () => {
   const [pedidoIdDiseno, setPedidoIdDiseno] = useState("")
   const [subiendoArchivo, setSubiendoArchivo] = useState(false)
   const [errorSubida, setErrorSubida] = useState("")
-  const [modalVerPedido, setModalVerPedido] = useState(false);
-  const [pedidoVer, setPedidoVer] = useState(null);
-  const [procesando, setProcesando] = useState(false);
+  const [modalVerPedido, setModalVerPedido] = useState(false)
+  const [pedidoVer, setPedidoVer] = useState(null)
+  const [procesando, setProcesando] = useState(false)
 
   const navigate = useNavigate()
 
@@ -40,6 +42,10 @@ const DashboardDisenador = () => {
     configuracion: "",
     estado: "en_diseño",
     material_id: "",
+    esLetrero: false,
+    letrero_tipo: "",
+    letrero_alto: "",
+    letrero_largo: "",
   }
 
   const [nuevoPedido, setNuevoPedido] = useState(pedidoInicial)
@@ -56,7 +62,7 @@ const DashboardDisenador = () => {
     setCargando(true)
     const { data, error } = await supabase
       .from("pedidos")
-      .select("*")
+      .select("*, disenos(*)")
       .order("created_at", { ascending: false })
     if (!error) setPedidos(data)
     setCargando(false)
@@ -78,16 +84,14 @@ const DashboardDisenador = () => {
     if (error) {
       console.error("Error cargarDisenos:", error.message)
     } else {
-      console.log("Diseños cargados:", data)
       setDisenos(data ?? [])
     }
   }
 
-  const cambiarsesion = async()=>{
+  const cambiarsesion = async () => {
     await supabase.auth.signOut()
     navigate("/login")
   }
-
 
   const cerrarSesion = async () => {
     await supabase.auth.signOut()
@@ -99,6 +103,19 @@ const DashboardDisenador = () => {
   const handleChangePedido = (e) => {
     const { name, value, type, checked } = e.target
     const nuevoValor = type === "checkbox" ? checked : value
+
+    if (name === "esLetrero") {
+      setNuevoPedido({
+        ...nuevoPedido,
+        esLetrero: checked,
+        material_id: checked ? "" : nuevoPedido.material_id,
+        letrero_tipo: checked ? nuevoPedido.letrero_tipo : "",
+        letrero_alto: checked ? nuevoPedido.letrero_alto : "",
+        letrero_largo: checked ? nuevoPedido.letrero_largo : "",
+      })
+      setStockDisponible(null)
+      return
+    }
 
     if (name === "material_id") {
       setNuevoPedido({ ...nuevoPedido, [name]: nuevoValor })
@@ -123,22 +140,37 @@ const DashboardDisenador = () => {
 
     const { data: userData } = await supabase.auth.getUser()
     const estadoFinal =
-      stockDisponible && stockDisponible.stock > 0 ? "en_diseño" : "sin_material"
+      nuevoPedido.esLetrero
+        ? "en_diseño"
+        : stockDisponible && stockDisponible.stock > 0
+        ? "en_diseño"
+        : "sin_material"
 
     const { data: pedidoCreado, error } = await supabase
       .from("pedidos")
       .insert({
         usuario_id: userData.user.id,
-        ...nuevoPedido,
+        cliente_nombre: nuevoPedido.cliente_nombre,
+        cliente_contacto: nuevoPedido.cliente_contacto,
         cantidad: parseInt(nuevoPedido.cantidad),
+        descuento: nuevoPedido.descuento,
+        prioridad: nuevoPedido.prioridad,
+        fecha_entrega: nuevoPedido.fecha_entrega || null,
+        especificaciones: nuevoPedido.especificaciones,
+        perfil_impresion: nuevoPedido.perfil_impresion,
+        configuracion: nuevoPedido.configuracion,
         estado: estadoFinal,
+        material_id: nuevoPedido.esLetrero ? null : (nuevoPedido.material_id || null),
+        letrero_tipo: nuevoPedido.esLetrero ? nuevoPedido.letrero_tipo : null,
+        letrero_alto: nuevoPedido.esLetrero ? parseFloat(nuevoPedido.letrero_alto) || null : null,
+        letrero_largo: nuevoPedido.esLetrero ? parseFloat(nuevoPedido.letrero_largo) || null : null,
       })
       .select()
       .single()
 
     if (error) { console.error(error.message); return }
 
-    if (nuevoPedido.material_id && pedidoCreado) {
+    if (!nuevoPedido.esLetrero && nuevoPedido.material_id && pedidoCreado) {
       await supabase.from("pedido_materiales").insert({
         pedido_id: pedidoCreado.id,
         material_id: nuevoPedido.material_id,
@@ -154,6 +186,7 @@ const DashboardDisenador = () => {
 
   const abrirEditar = (pedido) => {
     setPedidoEditar({ ...pedido })
+    setEsLetreroEditar(!!(pedido.letrero_tipo))
     setModalEditar(true)
   }
 
@@ -175,12 +208,16 @@ const DashboardDisenador = () => {
         cliente_contacto: pedidoEditar.cliente_contacto,
         cantidad: parseInt(pedidoEditar.cantidad),
         descuento: parseInt(pedidoEditar.cantidad) > 10,
+        letrero_tipo: esLetreroEditar ? (pedidoEditar.letrero_tipo || null) : null,
+        letrero_alto: esLetreroEditar ? (parseFloat(pedidoEditar.letrero_alto) || null) : null,
+        letrero_largo: esLetreroEditar ? (parseFloat(pedidoEditar.letrero_largo) || null) : null,
       })
       .eq("id", pedidoEditar.id)
 
     if (!error) {
       setModalEditar(false)
       setPedidoEditar(null)
+      setEsLetreroEditar(false)
       cargarPedidos()
     } else {
       console.error(error.message)
@@ -210,27 +247,22 @@ const DashboardDisenador = () => {
 
     const { data: userData } = await supabase.auth.getUser()
     const extension = archivoDis.name.split(".").pop()
-    // Sin subcarpeta — directo en la raíz del bucket "disenos"
     const nombreUnico = `${Date.now()}_${userData.user.id}.${extension}`
 
-    // 1. Subir al bucket
     const { error: storageError } = await supabase.storage
       .from("disenos")
       .upload(nombreUnico, archivoDis)
 
     if (storageError) {
-      console.error("Error storage:", storageError.message)
       setErrorSubida(`Error al subir archivo: ${storageError.message}`)
       setSubiendoArchivo(false)
       return
     }
 
-    // 2. Obtener URL pública
     const { data: urlData } = supabase.storage
       .from("disenos")
       .getPublicUrl(nombreUnico)
 
-    // 3. Insertar en tabla disenos
     const { error: dbError } = await supabase.from("disenos").insert({
       pedido_id: pedidoIdDiseno,
       archivo_url: urlData.publicUrl,
@@ -238,10 +270,8 @@ const DashboardDisenador = () => {
     })
 
     if (dbError) {
-      console.error("Error DB:", dbError.message)
       setErrorSubida(`Error al guardar en BD: ${dbError.message}`)
     } else {
-      // 4. Actualizar estado del pedido
       await supabase
         .from("pedidos")
         .update({ estado: "en_diseño" })
@@ -277,88 +307,82 @@ const DashboardDisenador = () => {
     cargarDisenos()
     cargarPedidos()
   }
-  // --- FUNCIONES DE ACCIÓN ---
-  const eliminarPedido = async (pedido) => {
-    const confirmar = window.confirm(`¿Estás seguro de que quieres eliminar el pedido de "${pedido.cliente_nombre}"? Esta acción no se puede deshacer.`);
-    if (!confirmar) return;
 
-    setProcesando(true);
+  // ─── ACCIONES PEDIDOS ───────────────────────────────────────────────
+
+  const eliminarPedido = async (pedido) => {
+    const confirmar = window.confirm(
+      `¿Estás seguro de que quieres eliminar el pedido de "${pedido.cliente_nombre}"? Esta acción no se puede deshacer.`
+    )
+    if (!confirmar) return
+
+    setProcesando(true)
     try {
-      // 1. Limpiar archivos del Storage si existen diseños vinculados
       if (pedido.disenos && pedido.disenos.length > 0) {
         for (const diseno of pedido.disenos) {
           if (diseno.hash_archivo) {
-            await supabase.storage.from("disenos").remove([diseno.hash_archivo]);
+            await supabase.storage.from("disenos").remove([diseno.hash_archivo])
           }
         }
       }
-      // 2. Eliminar de la base de datos
-      const { error } = await supabase.from("pedidos").delete().eq("id", pedido.id);
-      if (error) throw error;
-
-      alert("Pedido eliminado correctamente");
-      cargarPedidos(); // Recargar la lista
+      const { error } = await supabase.from("pedidos").delete().eq("id", pedido.id)
+      if (error) throw error
+      cargarPedidos()
     } catch (error) {
-      console.error("Error al eliminar:", error.message);
-      alert("No se pudo eliminar el pedido");
+      console.error("Error al eliminar:", error.message)
+      alert("No se pudo eliminar el pedido")
     } finally {
-      setProcesando(false);
+      setProcesando(false)
     }
-  };
+  }
 
   const finalizarPedido = async (pedido) => {
-  const confirmar = window.confirm(`¿Finalizar pedido de ${pedido.cliente_nombre}? Se borrarán los archivos de diseño.`);
-  if (!confirmar) return;
+    const confirmar = window.confirm(
+      `¿Finalizar pedido de ${pedido.cliente_nombre}? Se borrarán los archivos de diseño.`
+    )
+    if (!confirmar) return
 
-  setProcesando(true);
-  try {
-    // 1. Borrar archivos físicos del Storage (Bucket)
-    const disenosVinc = pedido.disenos || [];
-    for (const diseno of disenosVinc) {
-      if (diseno.hash_archivo) {
-        await supabase.storage.from("disenos").remove([diseno.hash_archivo]);
+    setProcesando(true)
+    try {
+      const disenosVinc = pedido.disenos || []
+      for (const diseno of disenosVinc) {
+        if (diseno.hash_archivo) {
+          await supabase.storage.from("disenos").remove([diseno.hash_archivo])
+        }
       }
+
+      const { error: errDiseno } = await supabase
+        .from("disenos")
+        .delete()
+        .eq("pedido_id", pedido.id)
+      if (errDiseno) throw errDiseno
+
+      const { error: errPedido } = await supabase
+        .from("pedidos")
+        .update({ estado: "terminado" })
+        .eq("id", pedido.id)
+      if (errPedido) throw errPedido
+
+      cargarPedidos()
+    } catch (e) {
+      console.error("Error al finalizar pedido:", e.message)
+      alert("Error: " + e.message)
+    } finally {
+      setProcesando(false)
     }
-
-    // 2. SOLUCIÓN AL ERROR 400: Borrar los registros de la tabla disenos
-    // No usamos .update({ archivo_url: null }) porque la DB lo prohíbe.
-    // Al usar .delete(), eliminamos la fila y ya no hay conflicto de constraint.
-    const { error: errDiseno } = await supabase
-      .from("disenos")
-      .delete()
-      .eq("pedido_id", pedido.id);
-    
-    if (errDiseno) throw errDiseno;
-
-    // 3. Actualizar el estado del pedido a terminado
-    const { error: errPedido } = await supabase
-      .from("pedidos")
-      .update({ estado: "terminado" })
-      .eq("id", pedido.id);
-
-    if (errPedido) throw errPedido;
-
-    alert("Pedido finalizado con éxito y espacio liberado.");
-    cargarPedidos(); // Recargar la lista
-  } catch (e) {
-    console.error("Error al finalizar pedido:", e.message);
-    alert("Error: " + e.message);
-  } finally {
-    setProcesando(false);
   }
-};
 
   const abrirVerPedido = (pedido) => {
-    setPedidoVer(pedido);
-    setModalVerPedido(true);
-  };
+    setPedidoVer(pedido)
+    setModalVerPedido(true)
+  }
+
   // ─── HELPERS ────────────────────────────────────────────────────────
 
   const colorEstado = (estado) => {
     const colores = {
       pendiente: "#f59e0b",
       "en_diseño": "#4f6ef7",
-      aprobado: "#22c55e",
       en_impresion: "#8b5cf6",
       sin_material: "#ef4444",
       terminado: "#64748b",
@@ -388,17 +412,23 @@ const DashboardDisenador = () => {
             onClick={() => setSeccion("pedidos")}
           >
             Pedidos
-          </button> 
+          </button>
           <button
             className={`nav-item ${seccion === "disenos" ? "active" : ""}`}
             onClick={() => setSeccion("disenos")}
           >
             Diseños
           </button>
+          <button
+            className={`nav-item ${seccion === "calculadora" ? "active" : ""}`}
+            onClick={() => setSeccion("calculadora")}
+          >
+            Calculadora
+          </button>
         </nav>
         <button className="sidebar-logout" onClick={cambiarsesion}>
           Cambiar sesión
-          </button>
+        </button>
         <button className="sidebar-logout" onClick={cerrarSesion}>
           Cerrar sesión
         </button>
@@ -407,7 +437,9 @@ const DashboardDisenador = () => {
       {/* CONTENIDO PRINCIPAL */}
       <main className="dashboard-main">
         <header className="dashboard-header">
-          <h1>{seccion === "pedidos" ? "Pedidos" : "Diseños"}</h1>
+          <h1>
+            {seccion === "pedidos" ? "Pedidos" : seccion === "disenos" ? "Diseños" : "Calculadora"}
+          </h1>
           {seccion === "pedidos" && (
             <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>
               + Nuevo Pedido
@@ -470,16 +502,16 @@ const DashboardDisenador = () => {
                             <div style={{ display: "flex", gap: "6px" }}>
                               <button className="btn-accion" onClick={() => abrirVerPedido(pedido)}>Ver</button>
                               <button className="btn-accion" onClick={() => abrirEditar(pedido)}>Editar</button>
-                              <button 
-                                className="btn-eliminar" 
-                                onClick={() => eliminarPedido(pedido)} 
+                              <button
+                                className="btn-eliminar"
+                                onClick={() => eliminarPedido(pedido)}
                                 disabled={procesando}
                               >
                                 {procesando ? "..." : "Eliminar"}
                               </button>
-                              <button 
-                                className="btn-finalizar" 
-                                onClick={() => finalizarPedido(pedido)} 
+                              <button
+                                className="btn-finalizar"
+                                onClick={() => finalizarPedido(pedido)}
                                 disabled={procesando}
                               >
                                 {procesando ? "..." : "Fin"}
@@ -517,21 +549,13 @@ const DashboardDisenador = () => {
                         <tr key={d.id}>
                           <td>{d.pedidos?.cliente_nombre || "—"}</td>
                           <td>
-                            <span
-                              className="badge"
-                              style={{ background: colorEstado(d.pedidos?.estado) }}
-                            >
+                            <span className="badge" style={{ background: colorEstado(d.pedidos?.estado) }}>
                               {d.pedidos?.estado || "—"}
                             </span>
                           </td>
                           <td>{new Date(d.created_at).toLocaleDateString("es-EC")}</td>
                           <td>
-                            <a
-                              href={d.archivo_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn-accion"
-                            >
+                            <a href={d.archivo_url} target="_blank" rel="noreferrer" className="btn-accion">
                               Ver archivo
                             </a>
                           </td>
@@ -539,22 +563,16 @@ const DashboardDisenador = () => {
                             <div style={{ display: "flex", gap: "8px" }}>
                               {d.pedidos?.estado === "en_diseño" && (
                                 <>
-                                  <button
-                                    className="btn-accion"
-                                    onClick={() => aprobarDiseno(d)}
-                                  >
+                                  <button className="btn-accion" onClick={() => aprobarDiseno(d)}>
                                     Aprobar
                                   </button>
-                                  <button
-                                    className="btn-eliminar"
-                                    onClick={() => rechazarDiseno(d)}
-                                  >
+                                  <button className="btn-eliminar" onClick={() => rechazarDiseno(d)}>
                                     Rechazar
                                   </button>
                                 </>
                               )}
-                              {d.pedidos?.estado === "aprobado" && (
-                                <span style={{ fontSize: "12px", color: "#22c55e" }}>✅ Aprobado</span>
+                              {d.pedidos?.estado === "en_impresion" && (
+                                <span style={{ fontSize: "12px", color: "#8b5cf6" }}>✅ En impresión</span>
                               )}
                             </div>
                           </td>
@@ -566,6 +584,9 @@ const DashboardDisenador = () => {
               )}
             </div>
           )}
+
+          {/* SECCIÓN CALCULADORA */}
+          {seccion === "calculadora" && <Calculadora />}
 
         </div>
       </main>
@@ -613,31 +634,86 @@ const DashboardDisenador = () => {
                 )}
               </div>
 
+              {/* CHECKBOX LETRERO */}
               <div className="modal-field modal-field-full">
-                <label>Material</label>
-                <select
-                  name="material_id"
-                  value={nuevoPedido.material_id || ""}
-                  onChange={handleChangePedido}
-                >
-                  <option value="">Seleccionar material...</option>
-                  {materiales.map((mat) => (
-                    <option key={mat.id} value={mat.id}>
-                      {mat.nombre} {mat.subtipo ? `(${mat.subtipo})` : ""} — Stock: {mat.stock} {mat.unidad}
-                    </option>
-                  ))}
-                </select>
-                {stockDisponible && stockDisponible.stock > 0 && (
-                  <span style={{ fontSize: "12px", color: "#22c55e", marginTop: "4px" }}>
-                    ✅ Stock disponible: {stockDisponible.stock} {stockDisponible.unidad}
-                  </span>
-                )}
-                {stockDisponible && stockDisponible.stock === 0 && (
-                  <span style={{ fontSize: "12px", color: "#ef4444", marginTop: "4px" }}>
-                    ⚠️ Sin stock. El pedido se registrará como "sin_material"
-                  </span>
-                )}
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    name="esLetrero"
+                    checked={nuevoPedido.esLetrero}
+                    onChange={handleChangePedido}
+                  />
+                  ¿Es letrero?
+                </label>
               </div>
+
+              {/* MATERIAL — solo si NO es letrero */}
+              {!nuevoPedido.esLetrero && (
+                <div className="modal-field modal-field-full">
+                  <label>Material</label>
+                  <select
+                    name="material_id"
+                    value={nuevoPedido.material_id || ""}
+                    onChange={handleChangePedido}
+                  >
+                    <option value="">Seleccionar material...</option>
+                    {materiales.map((mat) => (
+                      <option key={mat.id} value={mat.id}>
+                        {mat.nombre} {mat.subtipo ? `(${mat.subtipo})` : ""} — Stock: {mat.stock} {mat.unidad}
+                      </option>
+                    ))}
+                  </select>
+                  {stockDisponible && stockDisponible.stock > 0 && (
+                    <span style={{ fontSize: "12px", color: "#22c55e", marginTop: "4px" }}>
+                      ✅ Stock disponible: {stockDisponible.stock} {stockDisponible.unidad}
+                    </span>
+                  )}
+                  {stockDisponible && stockDisponible.stock === 0 && (
+                    <span style={{ fontSize: "12px", color: "#ef4444", marginTop: "4px" }}>
+                      ⚠️ Sin stock. El pedido se registrará como "sin_material"
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* CAMPOS LETRERO — solo si ES letrero */}
+              {nuevoPedido.esLetrero && (
+                <>
+                  <div className="modal-field">
+                    <label>Tipo de letrero</label>
+                    <select name="letrero_tipo" value={nuevoPedido.letrero_tipo} onChange={handleChangePedido}>
+                      <option value="">Seleccionar...</option>
+                      <option value="luminoso">Luminoso</option>
+                      <option value="no_luminoso">No luminoso</option>
+                      <option value="backlight">Backlight</option>
+                      <option value="acrilico">Acrílico</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+                  <div className="modal-field">
+                    <label>Alto (cm)</label>
+                    <input
+                      type="number"
+                      name="letrero_alto"
+                      min="0"
+                      placeholder="ej: 60"
+                      value={nuevoPedido.letrero_alto}
+                      onChange={handleChangePedido}
+                    />
+                  </div>
+                  <div className="modal-field">
+                    <label>Largo (cm)</label>
+                    <input
+                      type="number"
+                      name="letrero_largo"
+                      min="0"
+                      placeholder="ej: 120"
+                      value={nuevoPedido.letrero_largo}
+                      onChange={handleChangePedido}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="modal-field">
                 <label>Prioridad</label>
@@ -705,7 +781,6 @@ const DashboardDisenador = () => {
                 <select name="estado" value={pedidoEditar.estado} onChange={handleChangeEditar}>
                   <option value="pendiente">Pendiente</option>
                   <option value="en_diseño">En diseño</option>
-                  <option value="aprobado">Aprobado</option>
                   <option value="en_impresion">En impresión</option>
                   <option value="sin_material">Sin material</option>
                   <option value="terminado">Terminado</option>
@@ -785,11 +860,65 @@ const DashboardDisenador = () => {
                 />
               </div>
 
+              {/* CHECKBOX LETRERO */}
+              <div className="modal-field modal-field-full">
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={esLetreroEditar}
+                    onChange={(e) => {
+                      setEsLetreroEditar(e.target.checked)
+                      if (!e.target.checked) {
+                        setPedidoEditar({ ...pedidoEditar, letrero_tipo: "", letrero_alto: "", letrero_largo: "" })
+                      }
+                    }}
+                  />
+                  ¿Es letrero?
+                </label>
+              </div>
+
+              {/* CAMPOS LETRERO — solo si ES letrero */}
+              {esLetreroEditar && (
+                <>
+                  <div className="modal-field">
+                    <label>Tipo de letrero</label>
+                    <select name="letrero_tipo" value={pedidoEditar.letrero_tipo || ""} onChange={handleChangeEditar}>
+                      <option value="">Seleccionar...</option>
+                      <option value="luminoso">Luminoso</option>
+                      <option value="no_luminoso">No luminoso</option>
+                      <option value="backlight">Backlight</option>
+                      <option value="acrilico">Acrílico</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+                  <div className="modal-field">
+                    <label>Alto (cm)</label>
+                    <input
+                      type="number"
+                      name="letrero_alto"
+                      min="0"
+                      value={pedidoEditar.letrero_alto || ""}
+                      onChange={handleChangeEditar}
+                    />
+                  </div>
+                  <div className="modal-field">
+                    <label>Largo (cm)</label>
+                    <input
+                      type="number"
+                      name="letrero_largo"
+                      min="0"
+                      value={pedidoEditar.letrero_largo || ""}
+                      onChange={handleChangeEditar}
+                    />
+                  </div>
+                </>
+              )}
+
             </div>
             <div className="modal-buttons">
               <button onClick={guardarEdicion} className="btn-guardar">Guardar cambios</button>
               <button
-                onClick={() => { setModalEditar(false); setPedidoEditar(null) }}
+                onClick={() => { setModalEditar(false); setPedidoEditar(null); setEsLetreroEditar(false) }}
                 className="btn-cancelar"
               >
                 Cancelar
@@ -798,25 +927,38 @@ const DashboardDisenador = () => {
           </div>
         </div>
       )}
-        {/* MODAL VER DETALLES */}
-        {modalVerPedido && pedidoVer && (
-          <div className="modal-overlay" onClick={() => setModalVerPedido(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <h3>Detalles: {pedidoVer.cliente_nombre}</h3>
-              <div className="modal-grid">
-                <div className="modal-field"><label>Estado</label><p>{pedidoVer.estado}</p></div>
-                <div className="modal-field"><label>Prioridad</label><p>{pedidoVer.prioridad}</p></div>
-                <div className="modal-field"><label>Cantidad</label><p>{pedidoVer.cantidad}</p></div>
-                <div className="modal-field"><label>Contacto</label><p>{pedidoVer.cliente_contacto || "Sin contacto"}</p></div>
-                <div className="modal-field"><label>Entrega</label><p>{pedidoVer.fecha_entrega || "No definida"}</p></div>
-                <div className="modal-field-full"><label>Especificaciones</label><p>{pedidoVer.especificaciones || "Sin especificaciones"}</p></div>
-              </div>
-              <div className="modal-buttons">
-                <button className="btn-cancelar" onClick={() => setModalVerPedido(false)}>Cerrar</button>
+
+      {/* ── MODAL VER PEDIDO ─────────────────────────────────────── */}
+      {modalVerPedido && pedidoVer && (
+        <div className="modal-overlay" onClick={() => setModalVerPedido(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Detalles: {pedidoVer.cliente_nombre}</h3>
+            <div className="modal-grid">
+              <div className="modal-field"><label>Estado</label><p>{pedidoVer.estado}</p></div>
+              <div className="modal-field"><label>Prioridad</label><p>{pedidoVer.prioridad}</p></div>
+              <div className="modal-field"><label>Cantidad</label><p>{pedidoVer.cantidad}</p></div>
+              <div className="modal-field"><label>Contacto</label><p>{pedidoVer.cliente_contacto || "Sin contacto"}</p></div>
+              <div className="modal-field"><label>Entrega</label><p>{pedidoVer.fecha_entrega || "No definida"}</p></div>
+              {pedidoVer.letrero_tipo && (
+                <>
+                  <div className="modal-field"><label>Tipo de letrero</label><p>{pedidoVer.letrero_tipo}</p></div>
+                  <div className="modal-field">
+                    <label>Dimensiones</label>
+                    <p>{pedidoVer.letrero_alto ?? "?"} × {pedidoVer.letrero_largo ?? "?"} cm</p>
+                  </div>
+                </>
+              )}
+              <div className="modal-field modal-field-full">
+                <label>Especificaciones</label>
+                <p>{pedidoVer.especificaciones || "Sin especificaciones"}</p>
               </div>
             </div>
+            <div className="modal-buttons">
+              <button className="btn-cancelar" onClick={() => setModalVerPedido(false)}>Cerrar</button>
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
       {/* ── MODAL SUBIR DISEÑO ────────────────────────────────────── */}
       {mostrarModalDiseno && (
@@ -885,13 +1027,7 @@ const DashboardDisenador = () => {
             </div>
           </div>
         </div>
-
-        
-      )
-      
-      
-      
-      }
+      )}
 
     </div>
   )
