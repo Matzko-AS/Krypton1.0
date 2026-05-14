@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { supabase } from "../../../supabase/supabaseClient"
 import { useNavigate } from "react-router-dom"
 import Calculadora from "../diseñador/calculadora/Calculadora"
+import Contabilidad from "../contabilidad/contabilidad"
 import "./empleado.css"
 
 const DashboardEmpleado = () => {
@@ -17,6 +18,7 @@ const DashboardEmpleado = () => {
   const [modalEditarMaterial, setModalEditarMaterial] = useState(false)
   const [materialEditar, setMaterialEditar] = useState(null)
   const [stockDisponible, setStockDisponible] = useState(null)
+  const [usuario, setUsuario] = useState(null)
 
   // ── NUEVO: modal ver pedido ──────────────────────────────────────────────
   const [modalVerPedido, setModalVerPedido] = useState(false)
@@ -64,6 +66,7 @@ const DashboardEmpleado = () => {
   useEffect(() => {
     cargarPedidos()
     cargarMateriales()
+    supabase.auth.getUser().then(({ data }) => setUsuario(data?.user))
   }, [])
 
   // ── MODIFICADO: solo aprobado / en_impresion + join disenos ────────────
@@ -455,6 +458,12 @@ const DashboardEmpleado = () => {
           >
             Calculadora
           </button>
+          <button
+            className={`nav-item ${seccion === "contabilidad" ? "active" : ""}`}
+            onClick={() => setSeccion("contabilidad")}
+          >
+          Contabilidad
+          </button>
         </nav>
         <button className="sidebar-logout" onClick={cambiarsesion}>
           Cambiar sesión
@@ -467,12 +476,15 @@ const DashboardEmpleado = () => {
       {/* CONTENIDO PRINCIPAL */}
       <main className="dashboard-main">
         <header className="dashboard-header">
-          <h1>{seccion === "pedidos" ? "Pedidos en Producción" : seccion === "materiales" ? "Materiales" : "Calculadora"}</h1>
-          {seccion === "pedidos" && (
+          <h1>
+            {seccion === "pedidos" ? "Pedidos en Producción" : seccion === "materiales" ? "Materiales" : seccion === "contabilidad" ? "Contabilidad" : "Calculadora" }
+            </h1>
+            {seccion === "pedidos" && (
             <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>
               + Nuevo Pedido
             </button>
           )}
+
           {seccion === "materiales" && (
             <button className="btn-nuevo" onClick={() => setMostrarModalMaterial(true)}>
               + Nuevo Material
@@ -576,9 +588,9 @@ const DashboardEmpleado = () => {
                         <th>Largo</th>
                         <th>Grosor</th>
                         <th>Stock</th>
-                        <th>Estado</th>
                         <th>Tipo Laminacion</th>
-                        <th>Subtipo</th>
+                        <th>Estado</th>
+                        <th>Opciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -621,6 +633,7 @@ const DashboardEmpleado = () => {
 
           {/* SECCIÓN CALCULADORA */}
           {seccion === "calculadora" && <Calculadora />}
+          {seccion === "contabilidad" && <Contabilidad usuario={usuario}/>}
 
         </div>
       </main>

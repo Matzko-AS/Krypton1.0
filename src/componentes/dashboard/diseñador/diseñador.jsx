@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { supabase } from "../../../supabase/supabaseClient"
 import { useNavigate } from "react-router-dom"
 import Calculadora from "./calculadora/Calculadora"
+import Contabilidad from "../contabilidad/contabilidad"
 import "./diseñador.css"
 
 const DashboardDisenador = () => {
@@ -10,6 +11,7 @@ const DashboardDisenador = () => {
   const [disenos, setDisenos] = useState([])
   const [materiales, setMateriales] = useState([])
   const [cargando, setCargando] = useState(true)
+  const [usuario, setUsuario] = useState(null)
 
   // Modales pedidos
   const [mostrarModal, setMostrarModal] = useState(false)
@@ -54,6 +56,7 @@ const DashboardDisenador = () => {
     cargarPedidos()
     cargarMateriales()
     cargarDisenos()
+    supabase.auth.getUser().then(({ data }) => setUsuario(data?.user))
   }, [])
 
   // ─── CARGA ──────────────────────────────────────────────────────────
@@ -425,6 +428,11 @@ const DashboardDisenador = () => {
           >
             Calculadora
           </button>
+          <button
+          className={`nav-item ${seccion === "contabilidad" ? "active" : ""}`}
+          onClick={() => setSeccion("contabilidad")}>
+          Contabilidad
+          </button>
         </nav>
         <button className="sidebar-logout" onClick={cambiarsesion}>
           Cambiar sesión
@@ -438,7 +446,7 @@ const DashboardDisenador = () => {
       <main className="dashboard-main">
         <header className="dashboard-header">
           <h1>
-            {seccion === "pedidos" ? "Pedidos" : seccion === "disenos" ? "Diseños" : "Calculadora"}
+            {seccion === "pedidos" ? "Pedidos" : seccion === "disenos" ? "Diseños" : seccion === "contabilidad" ? "Contabilidad" : "Calculadora"}
           </h1>
           {seccion === "pedidos" && (
             <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>
@@ -587,6 +595,7 @@ const DashboardDisenador = () => {
 
           {/* SECCIÓN CALCULADORA */}
           {seccion === "calculadora" && <Calculadora />}
+          {seccion === "contabilidad" && <Contabilidad usuario={usuario}/>}
 
         </div>
       </main>

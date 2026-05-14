@@ -3,6 +3,7 @@ import Input from "../inputs/inputs.jsx"
 import Boton from "../boton/boton.jsx"
 import { useState } from "react"
 import { supabase } from "../../supabase/supabaseClient.js"
+import { useNavigate } from "react-router-dom"
 
 const Form = () => {
   const [formData, setFormData] = useState({
@@ -14,13 +15,11 @@ const Form = () => {
   })
   const [error, setError] = useState("")
   const [cargando, setCargando] = useState(false)
+  const navigate = useNavigate()
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData({
-      ...formData,
-      [name]: value,
-    })
+    setFormData({ ...formData, [name]: value })
   }
 
   const handleSubmit = async (e) => {
@@ -61,13 +60,25 @@ const Form = () => {
     }
 
     setCargando(false)
-    alert("Registro exitoso")
+    // Redirigir al login en lugar de alert
+    navigate("/login")
   }
 
   return (
     <section className="register">
       <form onSubmit={handleSubmit}>
+
+        {/* BOTÓN VOLVER */}
+        <button
+          type="button"
+          className="btn-volver"
+          onClick={() => navigate("/")}
+        >
+          ← Volver
+        </button>
+
         <h3>REGISTRO</h3>
+
         <Input
           placeholder="Nombre y Apellido"
           type="text"
@@ -97,7 +108,6 @@ const Form = () => {
           onChange={handleChange}
         />
 
-        {/* Selector de rol */}
         <div className="inputs">
           <select
             name="rol"
@@ -111,9 +121,11 @@ const Form = () => {
         </div>
 
         {error && <p className="error-mensaje">{error}</p>}
+
         <Boton type="submit" disabled={cargando}>
           {cargando ? "Registrando..." : "Registrar"}
         </Boton>
+
       </form>
     </section>
   )

@@ -21,10 +21,19 @@ const CARAS_LETRERO = {
   lona_translucida: { label: "Lona Translúcida", precio: 15.00 },
 }
 
+// ── Tipos de lápida ($/m²) ───────────────────────────────────────────
+const TIPOS_LAPIDA = {
+  pvc:            { label: "PVC",            precio: 35.00 },
+  acrilico:       { label: "Acrílico",       precio: 50.00 },
+  pvc_reflectivo: { label: "PVC Reflectivo", precio: 50.00 },
+  porcelanato:    { label: "Porcelanato",    precio: 160.00 },
+  marmol:         { label: "Mármol",        precio: 200.00 },
+}
+
 const DESCUENTO_VOLUMEN = 0.10
 
 const Calculadora = () => {
-  // ── Modo: "material" o "letrero" ──
+  // ── Modo: "material" | "letrero" | "lapida" ──
   const [modo, setModo] = useState("material")
 
   // ── Estado modo material ──
@@ -37,6 +46,10 @@ const Calculadora = () => {
   const [tipoCaraLetrero, setTipoCaraLetrero] = useState("lona")
   const [precioCara, setPrecioCara] = useState(CARAS_LETRERO["lona"].precio)
   const [precioMarco, setPrecioMarco] = useState(MARCOS["madera"].precio)
+
+  // ── Estado modo lápida ──
+  const [tipoLapida, setTipoLapida] = useState("pvc")
+  const [precioLapida, setPrecioLapida] = useState(TIPOS_LAPIDA["pvc"].precio)
 
   // ── Compartidos ──
   const [ancho, setAncho] = useState("")
@@ -70,6 +83,22 @@ const Calculadora = () => {
     setPrecioMarco(MARCOS[tipo].precio)
   }
 
+  // ─── HANDLERS MODO LÁPIDA ───────────────────────────────────────────
+
+  const handleLapidaChange = (tipo) => {
+    setTipoLapida(tipo)
+    setPrecioLapida(TIPOS_LAPIDA[tipo].precio)
+  }
+
+  // ─── RESET MODO ─────────────────────────────────────────────────────
+
+  const handleModoChange = (nuevoModo) => {
+    setModo(nuevoModo)
+    setAncho("")
+    setLargo("")
+    setCantidad(1)
+  }
+
   // ─── CÁLCULO EN VIVO ────────────────────────────────────────────────
 
   const calculo = useMemo(() => {
@@ -84,11 +113,14 @@ const Calculadora = () => {
     if (modo === "material") {
       precioUnitario = parseFloat(precioM2) || 0
       desglose = { tipo: "material" }
-    } else {
+    } else if (modo === "letrero") {
       const pc = parseFloat(precioCara) || 0
       const pm = parseFloat(precioMarco) || 0
       precioUnitario = pc + pm
       desglose = { tipo: "letrero", precioCara: pc, precioMarco: pm }
+    } else {
+      precioUnitario = parseFloat(precioLapida) || 0
+      desglose = { tipo: "lapida" }
     }
 
     const subtotal = areaM2 * precioUnitario * cant
@@ -106,7 +138,7 @@ const Calculadora = () => {
       desglose,
       listo: areaM2 > 0 && precioUnitario > 0,
     }
-  }, [ancho, largo, cantidad, precioM2, precioCara, precioMarco, modo])
+  }, [ancho, largo, cantidad, precioM2, precioCara, precioMarco, precioLapida, modo])
 
   // ─── GUARDAR EN HISTORIAL ───────────────────────────────────────────
 
@@ -115,8 +147,10 @@ const Calculadora = () => {
     let descripcion = ""
     if (modo === "material") {
       descripcion = `${PRECIOS_BASE[tipoMaterial].label}${conLaminado ? " + Laminado" : ""}`
-    } else {
+    } else if (modo === "letrero") {
       descripcion = `Letrero: ${CARAS_LETRERO[tipoCaraLetrero].label} + ${MARCOS[tipoMarco].label}`
+    } else {
+      descripcion = `Lápida: ${TIPOS_LAPIDA[tipoLapida].label}`
     }
     const entrada = {
       id: Date.now(),
@@ -139,9 +173,11 @@ const Calculadora = () => {
     if (modo === "material") {
       setConLaminado(false)
       setPrecioM2(PRECIOS_BASE[tipoMaterial].precio)
-    } else {
+    } else if (modo === "letrero") {
       setPrecioCara(CARAS_LETRERO[tipoCaraLetrero].precio)
       setPrecioMarco(MARCOS[tipoMarco].precio)
+    } else {
+      setPrecioLapida(TIPOS_LAPIDA[tipoLapida].precio)
     }
   }
 
@@ -163,15 +199,21 @@ const Calculadora = () => {
       <div className="modo-tabs">
         <button
           className={`modo-tab ${modo === "material" ? "active" : ""}`}
-          onClick={() => { setModo("material"); setAncho(""); setLargo(""); setCantidad(1) }}
+          onClick={() => handleModoChange("material")}
         >
           Material
         </button>
         <button
           className={`modo-tab ${modo === "letrero" ? "active" : ""}`}
-          onClick={() => { setModo("letrero"); setAncho(""); setLargo(""); setCantidad(1) }}
+          onClick={() => handleModoChange("letrero")}
         >
           Letrero
+        </button>
+        <button
+          className={`modo-tab ${modo === "lapida" ? "active" : ""}`}
+          onClick={() => handleModoChange("lapida")}
+        >
+          Lápida
         </button>
       </div>
 
@@ -198,7 +240,6 @@ const Calculadora = () => {
                 </div>
               </div>
 
-              {/* Toggle laminado — solo para Vinil y PVC */}
               {PRECIOS_BASE[tipoMaterial].laminado && (
                 <div className="calc-section">
                   <label className="calc-label">Laminado</label>
@@ -219,7 +260,6 @@ const Calculadora = () => {
                 </div>
               )}
 
-              {/* Precio editable */}
               <div className="calc-section">
                 <label className="calc-label">
                   Precio por m²
@@ -251,7 +291,6 @@ const Calculadora = () => {
           {/* ── MODO LETRERO ── */}
           {modo === "letrero" && (
             <>
-              {/* Material de la cara */}
               <div className="calc-section">
                 <label className="calc-label">Material de la cara</label>
                 <div className="laminado-toggle">
@@ -283,7 +322,6 @@ const Calculadora = () => {
                 </div>
               </div>
 
-              {/* Tipo de marco */}
               <div className="calc-section">
                 <label className="calc-label">Tipo de marco</label>
                 <div className="material-grid">
@@ -311,6 +349,49 @@ const Calculadora = () => {
                     className="btn-reset-precio"
                     title="Restaurar precio base"
                     onClick={() => setPrecioMarco(MARCOS[tipoMarco].precio)}
+                  >↺</button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── MODO LÁPIDA ── */}
+          {modo === "lapida" && (
+            <>
+              <div className="calc-section">
+                <label className="calc-label">Tipo de Lápida</label>
+                <div className="material-grid">
+                  {Object.entries(TIPOS_LAPIDA).map(([key, lapida]) => (
+                    <button
+                      key={key}
+                      className={`material-btn ${tipoLapida === key ? "active" : ""}`}
+                      onClick={() => handleLapidaChange(key)}
+                    >
+                      {lapida.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="calc-section">
+                <label className="calc-label">
+                  Precio por m²
+                  <span className="calc-hint">— editable</span>
+                </label>
+                <div className="input-prefix-wrap">
+                  <span className="input-prefix">$</span>
+                  <input
+                    type="number"
+                    className="calc-input"
+                    min="0"
+                    step="0.01"
+                    value={precioLapida}
+                    onChange={(e) => setPrecioLapida(e.target.value)}
+                  />
+                  <button
+                    className="btn-reset-precio"
+                    title="Restaurar precio base"
+                    onClick={() => setPrecioLapida(TIPOS_LAPIDA[tipoLapida].precio)}
                   >↺</button>
                 </div>
               </div>
@@ -384,9 +465,9 @@ const Calculadora = () => {
           {/* Resumen del producto */}
           <div className="result-card">
             <p className="result-label">
-              {modo === "material" ? "Material seleccionado" : "Letrero"}
+              {modo === "material" ? "Material seleccionado" : modo === "letrero" ? "Letrero" : "Lápida"}
             </p>
-            {modo === "material" ? (
+            {modo === "material" && (
               <p className="result-material">
                 {PRECIOS_BASE[tipoMaterial].label}
                 {PRECIOS_BASE[tipoMaterial].laminado && (
@@ -395,10 +476,16 @@ const Calculadora = () => {
                   </span>
                 )}
               </p>
-            ) : (
+            )}
+            {modo === "letrero" && (
               <p className="result-material">
                 {CARAS_LETRERO[tipoCaraLetrero].label}
                 <span className="laminado-badge con">{MARCOS[tipoMarco].label}</span>
+              </p>
+            )}
+            {modo === "lapida" && (
+              <p className="result-material">
+                {TIPOS_LAPIDA[tipoLapida].label}
               </p>
             )}
           </div>
@@ -421,10 +508,12 @@ const Calculadora = () => {
                 </div>
               </>
             )}
-            {modo === "material" && (
+            {(modo === "material" || modo === "lapida") && (
               <div className="breakdown-row">
                 <span>Precio / m²</span>
-                <span>{precioM2 > 0 ? fmt(parseFloat(precioM2)) : "—"}</span>
+                <span>
+                  {calculo.precioUnitario > 0 ? fmt(calculo.precioUnitario) : "—"}
+                </span>
               </div>
             )}
             <div className="breakdown-row">

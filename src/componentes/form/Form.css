@@ -56,3 +56,40 @@
   border-radius: 8px;
   margin-top: -8px;
 }
+
+.btn-volver {
+  background: transparent;
+  border: none;
+  color: #fcfcfc;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s;
+}
+.btn-volver:hover { color: #e2e8f0; }
+
+.btn-olvide {
+  background: transparent;
+  border: none;
+  color: #4f6ef7;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 8px;
+  width: 100%;
+  text-align: center;
+  transition: color 0.15s;
+}
+.btn-olvide:hover:not(:disabled) { color: #818cf8; text-decoration: underline; }
+.btn-olvide:disabled { color: #475569; cursor: not-allowed; }
+
+.exito-mensaje {
+  font-size: 12px;
+  color: #22c55e;
+  text-align: center;
+  margin: 4px 0;
+}

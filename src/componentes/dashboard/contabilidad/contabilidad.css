@@ -1,0 +1,323 @@
+/* ── WRAPPER ─────────────────────────────────────────────────────── */
+.cont-wrapper {
+  padding: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+  font-family: "Inter", sans-serif;
+}
+
+/* ── HEADER ──────────────────────────────────────────────────────── */
+.cont-header {
+  margin-bottom: 24px;
+}
+.cont-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0 0 4px;
+}
+.cont-subtitle {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* ── LAYOUT BODY ─────────────────────────────────────────────────── */
+.cont-body {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 820px) {
+  .cont-body { grid-template-columns: 1fr; }
+}
+
+/* ── CARDS GENÉRICAS ─────────────────────────────────────────────── */
+.cont-card {
+  background: #1e2535;
+  border: 1px solid #2d3748;
+  border-radius: 12px;
+  padding: 20px;
+}
+.cont-card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.registros-count {
+  background: #2d3748;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+/* ── FORMULARIO ──────────────────────────────────────────────────── */
+.cont-field {
+  margin-bottom: 16px;
+}
+.cont-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cont-input {
+  width: 100%;
+  background: #0f1623;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.cont-input:focus { border-color: #6366f1; }
+.cont-input::placeholder { color: #4a5568; }
+
+.cont-input-prefix-wrap {
+  display: flex;
+  align-items: center;
+  background: #0f1623;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.cont-input-prefix-wrap:focus-within { border-color: #6366f1; }
+.cont-input-prefix {
+  padding: 0 10px;
+  color: #6366f1;
+  font-weight: 600;
+  font-size: 0.9rem;
+  background: #0f1623;
+  border-right: 1px solid #2d3748;
+}
+.cont-input-prefix-wrap .cont-input {
+  border: none;
+  border-radius: 0;
+}
+.cont-input-prefix-wrap .cont-input:focus { border: none; }
+
+/* ── TOGGLE TIPO ─────────────────────────────────────────────────── */
+.tipo-toggle {
+  display: flex;
+  gap: 8px;
+}
+.tipo-btn {
+  flex: 1;
+  padding: 9px;
+  border-radius: 8px;
+  border: 1px solid #2d3748;
+  background: #0f1623;
+  color: #94a3b8;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.tipo-btn.venta.active {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: #34d399;
+  color: #34d399;
+}
+.tipo-btn.gasto.active {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: #f87171;
+  color: #f87171;
+}
+.tipo-btn:hover:not(.active) { border-color: #4a5568; color: #e2e8f0; }
+
+/* ── ERROR ───────────────────────────────────────────────────────── */
+.cont-error {
+  font-size: 0.825rem;
+  color: #f87171;
+  margin: -8px 0 12px;
+}
+
+/* ── BOTÓN GUARDAR ───────────────────────────────────────────────── */
+.btn-guardar-cont {
+  width: 100%;
+  padding: 11px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.btn-guardar-cont:hover:not(:disabled) { background: #4f46e5; }
+.btn-guardar-cont:disabled { opacity: 0.5; cursor: default; }
+
+/* ── NAVEGADOR DE FECHA ──────────────────────────────────────────── */
+.fecha-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.fecha-btn {
+  background: #1e2535;
+  border: 1px solid #2d3748;
+  color: #94a3b8;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.18s;
+  flex-shrink: 0;
+}
+.fecha-btn:hover:not(:disabled) { border-color: #6366f1; color: #e2e8f0; }
+.fecha-btn:disabled { opacity: 0.3; cursor: default; }
+.fecha-centro {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.fecha-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-transform: capitalize;
+}
+.fecha-input {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.75rem;
+  cursor: pointer;
+  outline: none;
+}
+.fecha-input::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+
+/* ── TARJETAS RESUMEN ────────────────────────────────────────────── */
+.resumen-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+@media (max-width: 600px) {
+  .resumen-grid { grid-template-columns: 1fr; }
+}
+.resumen-card {
+  background: #1e2535;
+  border: 1px solid #2d3748;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.resumen-card.ventas  { border-left: 3px solid #34d399; }
+.resumen-card.gastos  { border-left: 3px solid #f87171; }
+.resumen-card.positiva { border-left: 3px solid #818cf8; }
+.resumen-card.negativa { border-left: 3px solid #fb923c; }
+.resumen-icon { font-size: 1.4rem; }
+.resumen-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 2px;
+}
+.resumen-monto {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+/* ── LISTA REGISTROS ─────────────────────────────────────────────── */
+.registros-card { margin-top: 0; }
+.cont-empty {
+  text-align: center;
+  color: #4a5568;
+  font-size: 0.875rem;
+  padding: 24px 0;
+}
+.registros-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.registro-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #2d3748;
+  background: #0f1623;
+  gap: 12px;
+}
+.registro-item.venta { border-left: 3px solid #34d399; }
+.registro-item.gasto { border-left: 3px solid #f87171; }
+
+.registro-left { flex: 1; min-width: 0; }
+.registro-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  margin-bottom: 4px;
+}
+.registro-badge.venta { background: rgba(52,211,153,0.12); color: #34d399; }
+.registro-badge.gasto { background: rgba(248,113,113,0.12); color: #f87171; }
+.registro-desc {
+  font-size: 0.875rem;
+  color: #e2e8f0;
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.registro-meta {
+  font-size: 0.75rem;
+  color: #4a5568;
+  margin: 0;
+}
+
+.registro-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.registro-monto {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.registro-monto.venta { color: #34d399; }
+.registro-monto.gasto { color: #f87171; }
+
+.btn-eliminar-reg {
+  background: transparent;
+  border: none;
+  color: #4a5568;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+  line-height: 1;
+}
+.btn-eliminar-reg:hover { color: #f87171; }

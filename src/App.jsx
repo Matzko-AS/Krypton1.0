@@ -4,6 +4,7 @@ import Login from "./componentes/login/login"
 import Form from "./componentes/form/Form"
 import DashboardEmpleado from "./componentes/dashboard/empleado/empleado"
 import DashboardDiseñador from "./componentes/dashboard/diseñador/diseñador"
+import ResetPassword from "./componentes/login/ResetPassword"
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/register" element={<Form />} />
         <Route path="/dashboard/diseñador" element={<DashboardDiseñador/>}/>
         <Route path="/dashboard/empleado" element={<DashboardEmpleado/>}/>
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     </Router>
   )
