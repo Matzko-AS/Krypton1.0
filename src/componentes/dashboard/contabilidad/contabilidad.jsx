@@ -145,13 +145,13 @@ const Contabilidad = ({ usuario }) => {
                   className={`tipo-btn venta ${tipo === "venta" ? "active" : ""}`}
                   onClick={() => setTipo("venta")}
                 >
-                  💰 Venta
+                  Venta
                 </button>
                 <button
                   className={`tipo-btn gasto ${tipo === "gasto" ? "active" : ""}`}
                   onClick={() => setTipo("gasto")}
                 >
-                  📤 Gasto
+                   Gasto
                 </button>
               </div>
             </div>

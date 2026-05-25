@@ -48,6 +48,8 @@ const DashboardDisenador = () => {
     letrero_tipo: "",
     letrero_alto: "",
     letrero_largo: "",
+    precio_total: "",
+    abono: "",
   }
 
   const [nuevoPedido, setNuevoPedido] = useState(pedidoInicial)
@@ -167,6 +169,8 @@ const DashboardDisenador = () => {
         letrero_tipo: nuevoPedido.esLetrero ? nuevoPedido.letrero_tipo : null,
         letrero_alto: nuevoPedido.esLetrero ? parseFloat(nuevoPedido.letrero_alto) || null : null,
         letrero_largo: nuevoPedido.esLetrero ? parseFloat(nuevoPedido.letrero_largo) || null : null,
+        precio_total: nuevoPedido.precio_total ? parseFloat(nuevoPedido.precio_total) : null,
+        abono: nuevoPedido.abono ? parseFloat(nuevoPedido.abono) : 0,
       })
       .select()
       .single()
@@ -214,6 +218,8 @@ const DashboardDisenador = () => {
         letrero_tipo: esLetreroEditar ? (pedidoEditar.letrero_tipo || null) : null,
         letrero_alto: esLetreroEditar ? (parseFloat(pedidoEditar.letrero_alto) || null) : null,
         letrero_largo: esLetreroEditar ? (parseFloat(pedidoEditar.letrero_largo) || null) : null,
+        precio_total: pedidoEditar.precio_total ? parseFloat(pedidoEditar.precio_total) : null,
+        abono: pedidoEditar.abono ? parseFloat(pedidoEditar.abono) : 0,
       })
       .eq("id", pedidoEditar.id)
 
@@ -398,6 +404,8 @@ const DashboardDisenador = () => {
     return colores[prioridad] || "#ffffff"
   }
 
+  const fmt = (n) => `$${Number(n || 0).toFixed(2)}`
+
   // ─── RENDER ─────────────────────────────────────────────────────────
 
   return (
@@ -410,53 +418,29 @@ const DashboardDisenador = () => {
           <span>Diseño</span>
         </div>
         <nav className="sidebar-nav">
-          <button
-            className={`nav-item ${seccion === "pedidos" ? "active" : ""}`}
-            onClick={() => setSeccion("pedidos")}
-          >
-            Pedidos
-          </button>
-          <button
-            className={`nav-item ${seccion === "disenos" ? "active" : ""}`}
-            onClick={() => setSeccion("disenos")}
-          >
-            Diseños
-          </button>
-          <button
-            className={`nav-item ${seccion === "calculadora" ? "active" : ""}`}
-            onClick={() => setSeccion("calculadora")}
-          >
-            Calculadora
-          </button>
-          <button
-          className={`nav-item ${seccion === "contabilidad" ? "active" : ""}`}
-          onClick={() => setSeccion("contabilidad")}>
-          Contabilidad
-          </button>
+          <button className={`nav-item ${seccion === "pedidos" ? "active" : ""}`} onClick={() => setSeccion("pedidos")}>Pedidos</button>
+          <button className={`nav-item ${seccion === "disenos" ? "active" : ""}`} onClick={() => setSeccion("disenos")}>Diseños</button>
+          <button className={`nav-item ${seccion === "calculadora" ? "active" : ""}`} onClick={() => setSeccion("calculadora")}>Calculadora</button>
+          <button className={`nav-item ${seccion === "contabilidad" ? "active" : ""}`} onClick={() => setSeccion("contabilidad")}>Contabilidad</button>
         </nav>
-        <button className="sidebar-logout" onClick={cambiarsesion}>
-          Cambiar sesión
-        </button>
-        <button className="sidebar-logout" onClick={cerrarSesion}>
-          Cerrar sesión
-        </button>
+        <button className="sidebar-logout" onClick={cambiarsesion}>Cambiar sesión</button>
+        <button className="sidebar-logout" onClick={cerrarSesion}>Cerrar sesión</button>
       </aside>
 
       {/* CONTENIDO PRINCIPAL */}
       <main className="dashboard-main">
         <header className="dashboard-header">
           <h1>
-            {seccion === "pedidos" ? "Pedidos" : seccion === "disenos" ? "Diseños" : seccion === "contabilidad" ? "Contabilidad" : "Calculadora"}
+            {seccion === "pedidos" ? "Pedidos"
+              : seccion === "disenos" ? "Diseños"
+              : seccion === "contabilidad" ? "Contabilidad"
+              : "Calculadora"}
           </h1>
           {seccion === "pedidos" && (
-            <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>
-              + Nuevo Pedido
-            </button>
+            <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>+ Nuevo Pedido</button>
           )}
           {seccion === "disenos" && (
-            <button className="btn-nuevo" onClick={() => setMostrarModalDiseno(true)}>
-              + Subir Diseño
-            </button>
+            <button className="btn-nuevo" onClick={() => setMostrarModalDiseno(true)}>+ Subir Diseño</button>
           )}
         </header>
 
@@ -491,16 +475,8 @@ const DashboardDisenador = () => {
                         <tr key={pedido.id}>
                           <td>{pedido.cliente_nombre || "—"}</td>
                           <td>{pedido.cliente_contacto || "—"}</td>
-                          <td>
-                            <span className="badge" style={{ background: colorEstado(pedido.estado) }}>
-                              {pedido.estado}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="badge" style={{ background: colorPrioridad(pedido.prioridad) }}>
-                              {pedido.prioridad}
-                            </span>
-                          </td>
+                          <td><span className="badge" style={{ background: colorEstado(pedido.estado) }}>{pedido.estado}</span></td>
+                          <td><span className="badge" style={{ background: colorPrioridad(pedido.prioridad) }}>{pedido.prioridad}</span></td>
                           <td>{pedido.cantidad}</td>
                           <td>{pedido.descuento ? "✅ Sí" : "—"}</td>
                           <td>{pedido.perfil_impresion || "—"}</td>
@@ -510,20 +486,8 @@ const DashboardDisenador = () => {
                             <div style={{ display: "flex", gap: "6px" }}>
                               <button className="btn-accion" onClick={() => abrirVerPedido(pedido)}>Ver</button>
                               <button className="btn-accion" onClick={() => abrirEditar(pedido)}>Editar</button>
-                              <button
-                                className="btn-eliminar"
-                                onClick={() => eliminarPedido(pedido)}
-                                disabled={procesando}
-                              >
-                                {procesando ? "..." : "Eliminar"}
-                              </button>
-                              <button
-                                className="btn-finalizar"
-                                onClick={() => finalizarPedido(pedido)}
-                                disabled={procesando}
-                              >
-                                {procesando ? "..." : "Fin"}
-                              </button>
+                              <button className="btn-eliminar" onClick={() => eliminarPedido(pedido)} disabled={procesando}>{procesando ? "..." : "Eliminar"}</button>
+                              <button className="btn-finalizar" onClick={() => finalizarPedido(pedido)} disabled={procesando}>{procesando ? "..." : "Fin"}</button>
                             </div>
                           </td>
                         </tr>
@@ -563,20 +527,14 @@ const DashboardDisenador = () => {
                           </td>
                           <td>{new Date(d.created_at).toLocaleDateString("es-EC")}</td>
                           <td>
-                            <a href={d.archivo_url} target="_blank" rel="noreferrer" className="btn-accion">
-                              Ver archivo
-                            </a>
+                            <a href={d.archivo_url} target="_blank" rel="noreferrer" className="btn-accion">Ver archivo</a>
                           </td>
                           <td>
                             <div style={{ display: "flex", gap: "8px" }}>
                               {d.pedidos?.estado === "en_diseño" && (
                                 <>
-                                  <button className="btn-accion" onClick={() => aprobarDiseno(d)}>
-                                    Aprobar
-                                  </button>
-                                  <button className="btn-eliminar" onClick={() => rechazarDiseno(d)}>
-                                    Rechazar
-                                  </button>
+                                  <button className="btn-accion" onClick={() => aprobarDiseno(d)}>Aprobar</button>
+                                  <button className="btn-eliminar" onClick={() => rechazarDiseno(d)}>Rechazar</button>
                                 </>
                               )}
                               {d.pedidos?.estado === "en_impresion" && (
@@ -593,9 +551,8 @@ const DashboardDisenador = () => {
             </div>
           )}
 
-          {/* SECCIÓN CALCULADORA */}
           {seccion === "calculadora" && <Calculadora />}
-          {seccion === "contabilidad" && <Contabilidad usuario={usuario}/>}
+          {seccion === "contabilidad" && <Contabilidad usuario={usuario} />}
 
         </div>
       </main>
@@ -609,62 +566,60 @@ const DashboardDisenador = () => {
 
               <div className="modal-field">
                 <label>Nombre del cliente</label>
-                <input
-                  type="text"
-                  name="cliente_nombre"
-                  placeholder="Ej: Juan Pérez"
-                  value={nuevoPedido.cliente_nombre}
-                  onChange={handleChangePedido}
-                />
+                <input type="text" name="cliente_nombre" placeholder="Ej: Juan Pérez"
+                  value={nuevoPedido.cliente_nombre} onChange={handleChangePedido} />
               </div>
 
               <div className="modal-field">
                 <label>Contacto</label>
-                <input
-                  type="text"
-                  name="cliente_contacto"
-                  placeholder="Teléfono o correo"
-                  value={nuevoPedido.cliente_contacto}
-                  onChange={handleChangePedido}
-                />
+                <input type="text" name="cliente_contacto" placeholder="Teléfono o correo"
+                  value={nuevoPedido.cliente_contacto} onChange={handleChangePedido} />
               </div>
 
               <div className="modal-field">
                 <label>Cantidad</label>
-                <input
-                  type="number"
-                  name="cantidad"
-                  min="1"
-                  value={nuevoPedido.cantidad}
-                  onChange={handleChangePedido}
-                />
-                {nuevoPedido.descuento && (
-                  <span className="descuento-aviso">✅ Aplica descuento por volumen</span>
+                <input type="number" name="cantidad" min="1"
+                  value={nuevoPedido.cantidad} onChange={handleChangePedido} />
+                {nuevoPedido.descuento && <span className="descuento-aviso">✅ Aplica descuento por volumen</span>}
+              </div>
+
+              <div className="modal-field">
+                <label>Prioridad</label>
+                <select name="prioridad" value={nuevoPedido.prioridad} onChange={handleChangePedido}>
+                  <option value="baja">Baja</option>
+                  <option value="media">Media</option>
+                  <option value="alta">Alta</option>
+                </select>
+              </div>
+
+              <div className="modal-field">
+                <label>Precio del pedido ($)</label>
+                <input type="number" name="precio_total" min="0" step="0.01" placeholder="0.00"
+                  value={nuevoPedido.precio_total} onChange={handleChangePedido} />
+              </div>
+
+              <div className="modal-field">
+                <label>Abono del cliente ($)</label>
+                <input type="number" name="abono" min="0" step="0.01" placeholder="0.00"
+                  value={nuevoPedido.abono} onChange={handleChangePedido} />
+                {nuevoPedido.precio_total && (
+                  <span style={{ fontSize: "12px", color: "#f59e0b", marginTop: "4px", display: "block" }}>
+                    Saldo pendiente: ${(parseFloat(nuevoPedido.precio_total || 0) - parseFloat(nuevoPedido.abono || 0)).toFixed(2)}
+                  </span>
                 )}
               </div>
 
-              {/* CHECKBOX LETRERO */}
               <div className="modal-field modal-field-full">
                 <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    name="esLetrero"
-                    checked={nuevoPedido.esLetrero}
-                    onChange={handleChangePedido}
-                  />
+                  <input type="checkbox" name="esLetrero" checked={nuevoPedido.esLetrero} onChange={handleChangePedido} />
                   ¿Es letrero?
                 </label>
               </div>
 
-              {/* MATERIAL — solo si NO es letrero */}
               {!nuevoPedido.esLetrero && (
                 <div className="modal-field modal-field-full">
                   <label>Material</label>
-                  <select
-                    name="material_id"
-                    value={nuevoPedido.material_id || ""}
-                    onChange={handleChangePedido}
-                  >
+                  <select name="material_id" value={nuevoPedido.material_id || ""} onChange={handleChangePedido}>
                     <option value="">Seleccionar material...</option>
                     {materiales.map((mat) => (
                       <option key={mat.id} value={mat.id}>
@@ -685,7 +640,6 @@ const DashboardDisenador = () => {
                 </div>
               )}
 
-              {/* CAMPOS LETRERO — solo si ES letrero */}
               {nuevoPedido.esLetrero && (
                 <>
                   <div className="modal-field">
@@ -701,37 +655,16 @@ const DashboardDisenador = () => {
                   </div>
                   <div className="modal-field">
                     <label>Alto (cm)</label>
-                    <input
-                      type="number"
-                      name="letrero_alto"
-                      min="0"
-                      placeholder="ej: 60"
-                      value={nuevoPedido.letrero_alto}
-                      onChange={handleChangePedido}
-                    />
+                    <input type="number" name="letrero_alto" min="0" placeholder="ej: 60"
+                      value={nuevoPedido.letrero_alto} onChange={handleChangePedido} />
                   </div>
                   <div className="modal-field">
                     <label>Largo (cm)</label>
-                    <input
-                      type="number"
-                      name="letrero_largo"
-                      min="0"
-                      placeholder="ej: 120"
-                      value={nuevoPedido.letrero_largo}
-                      onChange={handleChangePedido}
-                    />
+                    <input type="number" name="letrero_largo" min="0" placeholder="ej: 120"
+                      value={nuevoPedido.letrero_largo} onChange={handleChangePedido} />
                   </div>
                 </>
               )}
-
-              <div className="modal-field">
-                <label>Prioridad</label>
-                <select name="prioridad" value={nuevoPedido.prioridad} onChange={handleChangePedido}>
-                  <option value="baja">Baja</option>
-                  <option value="media">Media</option>
-                  <option value="alta">Alta</option>
-                </select>
-              </div>
 
               <div className="modal-field">
                 <label>Configuración</label>
@@ -745,34 +678,19 @@ const DashboardDisenador = () => {
 
               <div className="modal-field">
                 <label>Fecha de entrega</label>
-                <input
-                  type="date"
-                  name="fecha_entrega"
-                  value={nuevoPedido.fecha_entrega}
-                  onChange={handleChangePedido}
-                />
+                <input type="date" name="fecha_entrega" value={nuevoPedido.fecha_entrega} onChange={handleChangePedido} />
               </div>
 
               <div className="modal-field modal-field-full">
                 <label>Especificaciones</label>
-                <textarea
-                  name="especificaciones"
-                  placeholder="Detalles del trabajo..."
-                  value={nuevoPedido.especificaciones}
-                  onChange={handleChangePedido}
-                  rows={3}
-                />
+                <textarea name="especificaciones" placeholder="Detalles del trabajo..."
+                  value={nuevoPedido.especificaciones} onChange={handleChangePedido} rows={3} />
               </div>
 
             </div>
             <div className="modal-buttons">
               <button onClick={agregarPedido} className="btn-guardar">Guardar</button>
-              <button
-                onClick={() => { setMostrarModal(false); setNuevoPedido(pedidoInicial); setStockDisponible(null) }}
-                className="btn-cancelar"
-              >
-                Cancelar
-              </button>
+              <button onClick={() => { setMostrarModal(false); setNuevoPedido(pedidoInicial); setStockDisponible(null) }} className="btn-cancelar">Cancelar</button>
             </div>
           </div>
         </div>
@@ -807,36 +725,35 @@ const DashboardDisenador = () => {
 
               <div className="modal-field">
                 <label>Contacto cliente</label>
-                <input
-                  type="text"
-                  name="cliente_contacto"
-                  value={pedidoEditar.cliente_contacto || ""}
-                  onChange={handleChangeEditar}
-                />
+                <input type="text" name="cliente_contacto" value={pedidoEditar.cliente_contacto || ""} onChange={handleChangeEditar} />
               </div>
 
               <div className="modal-field">
                 <label>Cantidad</label>
-                <input
-                  type="number"
-                  name="cantidad"
-                  min="1"
-                  value={pedidoEditar.cantidad || 1}
-                  onChange={handleChangeEditar}
-                />
-                {parseInt(pedidoEditar.cantidad) > 10 && (
-                  <span className="descuento-aviso">✅ Aplica descuento por volumen</span>
+                <input type="number" name="cantidad" min="1" value={pedidoEditar.cantidad || 1} onChange={handleChangeEditar} />
+                {parseInt(pedidoEditar.cantidad) > 10 && <span className="descuento-aviso">✅ Aplica descuento por volumen</span>}
+              </div>
+
+              <div className="modal-field">
+                <label>Precio del pedido ($)</label>
+                <input type="number" name="precio_total" min="0" step="0.01"
+                  value={pedidoEditar.precio_total || ""} onChange={handleChangeEditar} />
+              </div>
+
+              <div className="modal-field">
+                <label>Abono del cliente ($)</label>
+                <input type="number" name="abono" min="0" step="0.01"
+                  value={pedidoEditar.abono || ""} onChange={handleChangeEditar} />
+                {pedidoEditar.precio_total && (
+                  <span style={{ fontSize: "12px", color: "#f59e0b", marginTop: "4px", display: "block" }}>
+                    Saldo pendiente: ${(parseFloat(pedidoEditar.precio_total || 0) - parseFloat(pedidoEditar.abono || 0)).toFixed(2)}
+                  </span>
                 )}
               </div>
 
               <div className="modal-field">
                 <label>Perfil de impresión</label>
-                <input
-                  type="text"
-                  name="perfil_impresion"
-                  value={pedidoEditar.perfil_impresion || ""}
-                  onChange={handleChangeEditar}
-                />
+                <input type="text" name="perfil_impresion" value={pedidoEditar.perfil_impresion || ""} onChange={handleChangeEditar} />
               </div>
 
               <div className="modal-field">
@@ -851,42 +768,25 @@ const DashboardDisenador = () => {
 
               <div className="modal-field">
                 <label>Fecha de entrega</label>
-                <input
-                  type="date"
-                  name="fecha_entrega"
-                  value={pedidoEditar.fecha_entrega || ""}
-                  onChange={handleChangeEditar}
-                />
+                <input type="date" name="fecha_entrega" value={pedidoEditar.fecha_entrega || ""} onChange={handleChangeEditar} />
               </div>
 
               <div className="modal-field modal-field-full">
                 <label>Especificaciones</label>
-                <textarea
-                  name="especificaciones"
-                  value={pedidoEditar.especificaciones || ""}
-                  onChange={handleChangeEditar}
-                  rows={3}
-                />
+                <textarea name="especificaciones" value={pedidoEditar.especificaciones || ""} onChange={handleChangeEditar} rows={3} />
               </div>
 
-              {/* CHECKBOX LETRERO */}
               <div className="modal-field modal-field-full">
                 <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={esLetreroEditar}
+                  <input type="checkbox" checked={esLetreroEditar}
                     onChange={(e) => {
                       setEsLetreroEditar(e.target.checked)
-                      if (!e.target.checked) {
-                        setPedidoEditar({ ...pedidoEditar, letrero_tipo: "", letrero_alto: "", letrero_largo: "" })
-                      }
-                    }}
-                  />
+                      if (!e.target.checked) setPedidoEditar({ ...pedidoEditar, letrero_tipo: "", letrero_alto: "", letrero_largo: "" })
+                    }} />
                   ¿Es letrero?
                 </label>
               </div>
 
-              {/* CAMPOS LETRERO — solo si ES letrero */}
               {esLetreroEditar && (
                 <>
                   <div className="modal-field">
@@ -902,23 +802,11 @@ const DashboardDisenador = () => {
                   </div>
                   <div className="modal-field">
                     <label>Alto (cm)</label>
-                    <input
-                      type="number"
-                      name="letrero_alto"
-                      min="0"
-                      value={pedidoEditar.letrero_alto || ""}
-                      onChange={handleChangeEditar}
-                    />
+                    <input type="number" name="letrero_alto" min="0" value={pedidoEditar.letrero_alto || ""} onChange={handleChangeEditar} />
                   </div>
                   <div className="modal-field">
                     <label>Largo (cm)</label>
-                    <input
-                      type="number"
-                      name="letrero_largo"
-                      min="0"
-                      value={pedidoEditar.letrero_largo || ""}
-                      onChange={handleChangeEditar}
-                    />
+                    <input type="number" name="letrero_largo" min="0" value={pedidoEditar.letrero_largo || ""} onChange={handleChangeEditar} />
                   </div>
                 </>
               )}
@@ -926,12 +814,7 @@ const DashboardDisenador = () => {
             </div>
             <div className="modal-buttons">
               <button onClick={guardarEdicion} className="btn-guardar">Guardar cambios</button>
-              <button
-                onClick={() => { setModalEditar(false); setPedidoEditar(null); setEsLetreroEditar(false) }}
-                className="btn-cancelar"
-              >
-                Cancelar
-              </button>
+              <button onClick={() => { setModalEditar(false); setPedidoEditar(null); setEsLetreroEditar(false) }} className="btn-cancelar">Cancelar</button>
             </div>
           </div>
         </div>
@@ -943,11 +826,33 @@ const DashboardDisenador = () => {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Detalles: {pedidoVer.cliente_nombre}</h3>
             <div className="modal-grid">
+
               <div className="modal-field"><label>Estado</label><p>{pedidoVer.estado}</p></div>
               <div className="modal-field"><label>Prioridad</label><p>{pedidoVer.prioridad}</p></div>
               <div className="modal-field"><label>Cantidad</label><p>{pedidoVer.cantidad}</p></div>
               <div className="modal-field"><label>Contacto</label><p>{pedidoVer.cliente_contacto || "Sin contacto"}</p></div>
               <div className="modal-field"><label>Entrega</label><p>{pedidoVer.fecha_entrega || "No definida"}</p></div>
+
+              {/* PRECIO / ABONO / SALDO */}
+              {pedidoVer.precio_total != null && (
+                <>
+                  <div className="modal-field">
+                    <label>Precio total</label>
+                    <p style={{ color: "#22c55e", fontWeight: 700, fontSize: "16px" }}>{fmt(pedidoVer.precio_total)}</p>
+                  </div>
+                  <div className="modal-field">
+                    <label>Abono</label>
+                    <p style={{ color: "#4f6ef7", fontWeight: 600 }}>{fmt(pedidoVer.abono)}</p>
+                  </div>
+                  <div className="modal-field">
+                    <label>Saldo pendiente</label>
+                    <p style={{ color: pedidoVer.saldo > 0 ? "#f59e0b" : "#22c55e", fontWeight: 700 }}>
+                      {fmt(pedidoVer.saldo)}{pedidoVer.saldo <= 0 && " ✅ Pagado"}
+                    </p>
+                  </div>
+                </>
+              )}
+
               {pedidoVer.letrero_tipo && (
                 <>
                   <div className="modal-field"><label>Tipo de letrero</label><p>{pedidoVer.letrero_tipo}</p></div>
@@ -957,10 +862,12 @@ const DashboardDisenador = () => {
                   </div>
                 </>
               )}
+
               <div className="modal-field modal-field-full">
                 <label>Especificaciones</label>
                 <p>{pedidoVer.especificaciones || "Sin especificaciones"}</p>
               </div>
+
             </div>
             <div className="modal-buttons">
               <button className="btn-cancelar" onClick={() => setModalVerPedido(false)}>Cerrar</button>
@@ -978,59 +885,32 @@ const DashboardDisenador = () => {
 
               <div className="modal-field modal-field-full">
                 <label>Pedido asociado</label>
-                <select
-                  value={pedidoIdDiseno}
-                  onChange={(e) => setPedidoIdDiseno(e.target.value)}
-                >
+                <select value={pedidoIdDiseno} onChange={(e) => setPedidoIdDiseno(e.target.value)}>
                   <option value="">Seleccionar pedido...</option>
                   {pedidos
                     .filter((p) => ["pendiente", "en_diseño", "sin_material"].includes(p.estado))
                     .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.cliente_nombre} — {p.estado}
-                      </option>
+                      <option key={p.id} value={p.id}>{p.cliente_nombre} — {p.estado}</option>
                     ))}
                 </select>
               </div>
 
               <div className="modal-field modal-field-full">
                 <label>Archivo del diseño</label>
-                <input
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.pdf,.ai,.psd,.svg"
-                  onChange={handleArchivoChange}
-                  className="input-file"
-                />
+                <input type="file" accept=".jpg,.jpeg,.png,.pdf,.ai,.psd,.svg"
+                  onChange={handleArchivoChange} className="input-file" />
                 {archivoDis && (
-                  <span style={{ fontSize: "12px", color: "#22c55e", marginTop: "4px" }}>
-                    ✅ {archivoDis.name}
-                  </span>
+                  <span style={{ fontSize: "12px", color: "#22c55e", marginTop: "4px" }}>✅ {archivoDis.name}</span>
                 )}
               </div>
 
             </div>
-            {errorSubida && (
-              <p style={{ fontSize: "12px", color: "#ef4444", marginBottom: "12px" }}>
-                ⚠️ {errorSubida}
-              </p>
-            )}
+            {errorSubida && <p style={{ fontSize: "12px", color: "#ef4444", marginBottom: "12px" }}>⚠️ {errorSubida}</p>}
             <div className="modal-buttons">
-              <button
-                onClick={subirDiseno}
-                className="btn-guardar"
-                disabled={subiendoArchivo || !pedidoIdDiseno || !archivoDis}
-              >
+              <button onClick={subirDiseno} className="btn-guardar" disabled={subiendoArchivo || !pedidoIdDiseno || !archivoDis}>
                 {subiendoArchivo ? "Subiendo..." : "Subir diseño"}
               </button>
-              <button
-                onClick={() => {
-                  setMostrarModalDiseno(false)
-                  setPedidoIdDiseno("")
-                  setArchivoDis(null)
-                  setErrorSubida("")
-                }}
-                className="btn-cancelar"
-              >
+              <button onClick={() => { setMostrarModalDiseno(false); setPedidoIdDiseno(""); setArchivoDis(null); setErrorSubida("") }} className="btn-cancelar">
                 Cancelar
               </button>
             </div>

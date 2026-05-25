@@ -5,7 +5,7 @@ import { supabase } from '../../supabase/supabaseClient.js'
 import { useNavigate } from 'react-router-dom'
 
 const Login = () => {
-  const [formData, setFormData] = useState({ correo: "", password: "" })
+  const [formData, setFormData] = useState({ usuario: "", password: "" })
   const [error, setError] = useState("")
   const [cargando, setCargando] = useState(false)
   const [recuperando, setRecuperando] = useState(false)
@@ -17,83 +17,100 @@ const Login = () => {
     setFormData({ ...formData, [name]: value })
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setCargando(true)
-    setError("")
+const handleSubmit = async (e) => {
+  e.preventDefault()
+  setCargando(true)
+  setError("")
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email: formData.correo,
-      password: formData.password,
-    })
+  // 1. Buscar correo por usuario
+  const { data: perfiles } = await supabase
+    .rpc("buscar_perfil_por_usuario", { p_usuario: formData.usuario.toLowerCase().trim() })
 
-    if (authError) {
-      setError("Correo o contraseña incorrectos")
-      setCargando(false)
-      return
-    }
+  const perfil = perfiles?.[0]
 
-    const { data: usuario, error: dbError } = await supabase
-      .from("usuarios")
-      .select("rol")
-      .eq("id", data.user.id)
-      .single()
-
-    if (dbError || !usuario) {
-      setError("No se pudo obtener el perfil del usuario")
-      setCargando(false)
-      return
-    }
-
-    if (usuario.rol === "diseñador") navigate("/dashboard/diseñador")
-    else if (usuario.rol === "empleado") navigate("/dashboard/empleado")
-    else if (usuario.rol === "admin") navigate("/dashboard/admin")
-
+  if (!perfil?.correo) {
+    setError("Usuario o contraseña incorrectos")
     setCargando(false)
+    return
   }
 
+  // 2. Autenticar
+  const { data, error: authError } = await supabase.auth.signInWithPassword({
+    email: perfil.correo,
+    password: formData.password,
+  })
+
+  if (authError || !data.user) {
+    setError("Usuario o contraseña incorrectos")
+    setCargando(false)
+    return
+  }
+
+  // 3. Leer rol con sesión activa (RLS ya permite leer el propio registro)
+  const { data: usuarioDB } = await supabase
+    .from("usuarios")
+    .select("rol")
+    .eq("id", data.user.id)
+    .single()
+
+  const rol = usuarioDB?.rol
+
+  if (rol === "diseñador") navigate("/dashboard/diseñador")
+  else if (rol === "empleado") navigate("/dashboard/empleado")
+  else if (rol === "admin") navigate("/dashboard/admin")
+  else setError("Rol no reconocido")
+
+  setCargando(false)
+}
   const handleOlvidePassword = async () => {
-    if (!formData.correo) {
-      setError("Escribe tu correo arriba para recuperar la contraseña")
+    if (!formData.usuario.trim()) {
+      setError("Escribe tu nombre de usuario arriba para recuperar la contraseña")
       return
     }
+
     setRecuperando(true)
     setError("")
     setMensajeRecuperar("")
 
+    // Buscar correo por usuario
+      const { data: perfiles, error: perfilError } = await supabase
+        .rpc("buscar_perfil_por_usuario", { p_usuario: formData.usuario.toLowerCase().trim() })
+
+      const perfil = perfiles?.[0]
+
+      if (perfilError || !perfil) {
+        setError("Usuario o contraseña incorrectos")
+        setCargando(false)
+        return
+      }
+
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      formData.correo,
+      perfil.correo,
       { redirectTo: `${window.location.origin}/login` }
     )
 
     if (resetError) {
-      setError("No se pudo enviar el correo. Verifica el correo ingresado.")
+      setError("No se pudo enviar el correo de recuperación.")
     } else {
-      setMensajeRecuperar(`Correo de recuperación enviado a ${formData.correo}. Revisa tu bandeja.`)
+      setMensajeRecuperar("Correo de recuperación enviado. Revisa tu bandeja.")
     }
+
     setRecuperando(false)
   }
 
   return (
     <section className="register">
       <form onSubmit={handleSubmit}>
-
-        {/* BOTÓN VOLVER */}
-        <button
-          type="button"
-          className="btn-volver"
-          onClick={() => navigate("/")}
-        >
+        <button type="button" className="btn-volver" onClick={() => navigate("/")}>
           ← Volver
         </button>
-
         <h3>Inicio de Sesión</h3>
 
         <Input
-          placeholder="Correo"
-          type="email"
+          placeholder="Usuario"
+          type="password"
           required
-          name="correo"
+          name="usuario"
           onChange={handleChange}
         />
         <Input
@@ -111,7 +128,6 @@ const Login = () => {
           {cargando ? "Ingresando..." : "Iniciar Sesión"}
         </Boton>
 
-        {/* BOTÓN OLVIDÉ CONTRASEÑA */}
         <button
           type="button"
           className="btn-olvide"
@@ -120,7 +136,6 @@ const Login = () => {
         >
           {recuperando ? "Enviando correo..." : "¿Olvidaste tu contraseña?"}
         </button>
-
       </form>
     </section>
   )
