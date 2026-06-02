@@ -1,31 +1,32 @@
-import { useState, useEffect } from "react"
-import { supabase } from "../../../supabase/supabaseClient"
-import { useNavigate } from "react-router-dom"
-import Calculadora from "../diseñador/calculadora/Calculadora"
-import Contabilidad from "../contabilidad/contabilidad"
-import "./empleado.css"
-import 'react-toastify/dist/ReactToastify.css';
-import { ToastContainer, toast ,Zoom} from 'react-toastify';
+import { useState, useEffect } from "react";
+import { supabase } from "../../../supabase/supabaseClient";
+import { useNavigate } from "react-router-dom";
+import Calculadora from "../diseñador/calculadora/Calculadora";
+import Contabilidad from "../contabilidad/contabilidad";
+import "./empleado.css";
+import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer, toast, Zoom } from "react-toastify";
+import BlockchainViewer from "../../../blockchain/BlockchainViewer";
+import { registrarBloque } from "../../../blockchain/blockchainService";
 
 const DashboardEmpleado = () => {
-  const [seccion, setSeccion] = useState("pedidos")
-  const [pedidos, setPedidos] = useState([])
-  const [cargando, setCargando] = useState(true)
-  const [mostrarModal, setMostrarModal] = useState(false)
-  const [modalEditar, setModalEditar] = useState(false)
-  const [pedidoEditar, setPedidoEditar] = useState(null)
-  const navigate = useNavigate()
-  const [materiales, setMateriales] = useState([])
-  const [mostrarModalMaterial, setMostrarModalMaterial] = useState(false)
-  const [modalEditarMaterial, setModalEditarMaterial] = useState(false)
-  const [materialEditar, setMaterialEditar] = useState(null)
-  const [stockDisponible, setStockDisponible] = useState(null)
-  const [usuario, setUsuario] = useState(null)
-
-  const [modalVerPedido, setModalVerPedido] = useState(false)
-  const [pedidoVer, setPedidoVer] = useState(null)
-  const [procesando, setProcesando] = useState(false)
-  const [esLetreroEditar, setEsLetreroEditar] = useState(false)
+  const [seccion, setSeccion] = useState("pedidos");
+  const [pedidos, setPedidos] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [modalEditar, setModalEditar] = useState(false);
+  const [pedidoEditar, setPedidoEditar] = useState(null);
+  const navigate = useNavigate();
+  const [materiales, setMateriales] = useState([]);
+  const [mostrarModalMaterial, setMostrarModalMaterial] = useState(false);
+  const [modalEditarMaterial, setModalEditarMaterial] = useState(false);
+  const [materialEditar, setMaterialEditar] = useState(null);
+  const [stockDisponible, setStockDisponible] = useState(null);
+  const [usuario, setUsuario] = useState(null);
+  const [modalVerPedido, setModalVerPedido] = useState(false);
+  const [pedidoVer, setPedidoVer] = useState(null);
+  const [procesando, setProcesando] = useState(false);
+  const [esLetreroEditar, setEsLetreroEditar] = useState(false);
 
   const materialInicial = {
     nombre: "",
@@ -36,10 +37,10 @@ const DashboardEmpleado = () => {
     grosor: "",
     stock: "",
     unidad: "metros",
-    estado: "disponible"
-  }
+    estado: "disponible",
+  };
 
-  const [nuevoMaterial, setNuevoMaterial] = useState(materialInicial)
+  const [nuevoMaterial, setNuevoMaterial] = useState(materialInicial);
 
   const pedidoInicial = {
     cliente_nombre: "",
@@ -59,50 +60,50 @@ const DashboardEmpleado = () => {
     letrero_largo: "",
     precio_total: "",
     abono: "",
-  }
+  };
 
-  const [nuevoPedido, setNuevoPedido] = useState(pedidoInicial)
+  const [nuevoPedido, setNuevoPedido] = useState(pedidoInicial);
 
   useEffect(() => {
-    cargarPedidos()
-    cargarMateriales()
-    supabase.auth.getUser().then(({ data }) => setUsuario(data?.user))
-  }, [])
+    cargarPedidos();
+    cargarMateriales();
+    supabase.auth.getUser().then(({ data }) => setUsuario(data?.user));
+  }, []);
 
   // ─── CARGA ───────────────────────────────────────────────────────────
 
   const cargarPedidos = async () => {
-    setCargando(true)
+    setCargando(true);
     const { data, error } = await supabase
       .from("pedidos")
       .select("*, disenos(*)")
       .in("estado", ["en_impresion"])
-      .order("created_at", { ascending: false })
-    if (!error) setPedidos(data)
-    setCargando(false)
-  }
+      .order("created_at", { ascending: false });
+    if (!error) setPedidos(data);
+    setCargando(false);
+  };
 
   const cargarMateriales = async () => {
     const { data, error } = await supabase
       .from("materiales")
       .select("*")
-      .order("created_at", { ascending: false })
-    if (!error) setMateriales(data)
-  }
+      .order("created_at", { ascending: false });
+    if (!error) setMateriales(data);
+  };
 
   const cambiarsesion = async () => {
-    await supabase.auth.signOut()
-    navigate("/login")
-  }
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
 
   const cerrarSesion = async () => {
-    await supabase.auth.signOut()
-    navigate("/")
-  }
+    await supabase.auth.signOut();
+    navigate("/");
+  };
 
   // ─── HELPERS ─────────────────────────────────────────────────────────
 
-  const fmt = (n) => `$${Number(n || 0).toFixed(2)}`
+  const fmt = (n) => `$${Number(n || 0).toFixed(2)}`;
 
   const colorEstado = (estado) => {
     const colores = {
@@ -112,20 +113,20 @@ const DashboardEmpleado = () => {
       en_impresion: "#f97316",
       sin_material: "#ef4444",
       terminado: "#64748b",
-    }
-    return colores[estado] || "#ffffff"
-  }
+    };
+    return colores[estado] || "#ffffff";
+  };
 
   const colorPrioridad = (prioridad) => {
-    const colores = { alta: "#ef4444", media: "#f59e0b", baja: "#22c55e" }
-    return colores[prioridad] || "#ffffff"
-  }
+    const colores = { alta: "#ef4444", media: "#f59e0b", baja: "#22c55e" };
+    return colores[prioridad] || "#ffffff";
+  };
 
   // ─── PEDIDOS ─────────────────────────────────────────────────────────
 
   const handleChangePedido = (e) => {
-    const { name, value, type, checked } = e.target
-    const nuevoValor = type === "checkbox" ? checked : value
+    const { name, value, type, checked } = e.target;
+    const nuevoValor = type === "checkbox" ? checked : value;
 
     if (name === "esLetrero") {
       setNuevoPedido({
@@ -135,30 +136,37 @@ const DashboardEmpleado = () => {
         letrero_tipo: checked ? nuevoPedido.letrero_tipo : "",
         letrero_alto: checked ? nuevoPedido.letrero_alto : "",
         letrero_largo: checked ? nuevoPedido.letrero_largo : "",
-      })
-      setStockDisponible(null)
-      return
+      });
+      setStockDisponible(null);
+      return;
     }
 
     if (name === "material_id") {
-      setNuevoPedido({ ...nuevoPedido, [name]: nuevoValor })
-      verificarStock(nuevoValor)
-      return
+      setNuevoPedido({ ...nuevoPedido, [name]: nuevoValor });
+      verificarStock(nuevoValor);
+      return;
     }
 
     if (name === "cantidad") {
-      setNuevoPedido({ ...nuevoPedido, cantidad: value, descuento: parseInt(value) > 10 })
-      return
+      setNuevoPedido({
+        ...nuevoPedido,
+        cantidad: value,
+        descuento: parseInt(value) > 10,
+      });
+      return;
     }
 
-    setNuevoPedido({ ...nuevoPedido, [name]: nuevoValor })
-  }
+    setNuevoPedido({ ...nuevoPedido, [name]: nuevoValor });
+  };
 
   const agregarPedido = async () => {
-    if (!nuevoPedido.cliente_nombre) return
+    if (!nuevoPedido.cliente_nombre) return;
 
-    const { data: userData } = await supabase.auth.getUser()
-    const estadoFinal = stockDisponible && stockDisponible.stock > 0 ? "pendiente" : "sin_material"
+    const { data: userData } = await supabase.auth.getUser();
+    const estadoFinal =
+      stockDisponible && stockDisponible.stock > 0
+        ? "pendiente"
+        : "sin_material";
 
     const { data: pedidoCreado, error } = await supabase
       .from("pedidos")
@@ -174,52 +182,74 @@ const DashboardEmpleado = () => {
         perfil_impresion: nuevoPedido.perfil_impresion,
         configuracion: nuevoPedido.configuracion,
         estado: estadoFinal,
-        material_id: nuevoPedido.esLetrero ? null : (nuevoPedido.material_id || null),
+        material_id: nuevoPedido.esLetrero
+          ? null
+          : nuevoPedido.material_id || null,
         letrero_tipo: nuevoPedido.esLetrero ? nuevoPedido.letrero_tipo : null,
-        letrero_alto: nuevoPedido.esLetrero ? parseFloat(nuevoPedido.letrero_alto) || null : null,
-        letrero_largo: nuevoPedido.esLetrero ? parseFloat(nuevoPedido.letrero_largo) || null : null,
-        precio_total: nuevoPedido.precio_total ? parseFloat(nuevoPedido.precio_total) : null,
+        letrero_alto: nuevoPedido.esLetrero
+          ? parseFloat(nuevoPedido.letrero_alto) || null
+          : null,
+        letrero_largo: nuevoPedido.esLetrero
+          ? parseFloat(nuevoPedido.letrero_largo) || null
+          : null,
+        precio_total: nuevoPedido.precio_total
+          ? parseFloat(nuevoPedido.precio_total)
+          : null,
         abono: nuevoPedido.abono ? parseFloat(nuevoPedido.abono) : 0,
       })
       .select()
-      .single()
+      .single();
 
-    if (error) { console.error(error.message); return }
+    if (error) {
+      console.error(error.message);
+      return;
+    }
 
     if (nuevoPedido.material_id && pedidoCreado) {
       await supabase.from("pedido_materiales").insert({
         pedido_id: pedidoCreado.id,
         material_id: nuevoPedido.material_id,
         cantidad: parseInt(nuevoPedido.cantidad),
-      })
+      });
     }
+    await registrarBloque({
+      entidad: "pedido",
+      entidad_id: pedidoCreado.id,
+      accion: "creado",
+      usuario_id: userData.user.id,
+      datosExtra: {
+        cliente_nombre: nuevoPedido.cliente_nombre,
+        cantidad: nuevoPedido.cantidad,
+        estado: estadoFinal,
+      },
+    });
 
-    setMostrarModal(false)
-    setNuevoPedido(pedidoInicial)
-    setStockDisponible(null)
-    cargarPedidos()
-    toast.success('Guardado exitosamente', {
-    position: "bottom-right",
-    autoClose: 5000,
-    hideProgressBar: false,
-    closeOnClick: false,
-    pauseOnHover: true,
-    draggable: true,
-    theme: "dark",
-    transition: Zoom,
-  });
-  }
+    setMostrarModal(false);
+    setNuevoPedido(pedidoInicial);
+    setStockDisponible(null);
+    cargarPedidos();
+    toast.success("Guardado exitosamente", {
+      position: "bottom-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: false,
+      pauseOnHover: true,
+      draggable: true,
+      theme: "dark",
+      transition: Zoom,
+    });
+  };
 
   const abrirEditar = (pedido) => {
-    setPedidoEditar({ ...pedido })
-    setEsLetreroEditar(!!(pedido.letrero_tipo))
-    setModalEditar(true)
-  }
+    setPedidoEditar({ ...pedido });
+    setEsLetreroEditar(!!pedido.letrero_tipo);
+    setModalEditar(true);
+  };
 
   const handleChangeEditar = (e) => {
-    const { name, value } = e.target
-    setPedidoEditar({ ...pedidoEditar, [name]: value })
-  }
+    const { name, value } = e.target;
+    setPedidoEditar({ ...pedidoEditar, [name]: value });
+  };
 
   const guardarEdicion = async () => {
     const { error } = await supabase
@@ -234,169 +264,244 @@ const DashboardEmpleado = () => {
         cliente_contacto: pedidoEditar.cliente_contacto,
         cantidad: parseInt(pedidoEditar.cantidad),
         descuento: parseInt(pedidoEditar.cantidad) > 10,
-        letrero_tipo: esLetreroEditar ? (pedidoEditar.letrero_tipo || null) : null,
-        letrero_alto: esLetreroEditar ? (parseFloat(pedidoEditar.letrero_alto) || null) : null,
-        letrero_largo: esLetreroEditar ? (parseFloat(pedidoEditar.letrero_largo) || null) : null,
-        precio_total: pedidoEditar.precio_total ? parseFloat(pedidoEditar.precio_total) : null,
+        letrero_tipo: esLetreroEditar
+          ? pedidoEditar.letrero_tipo || null
+          : null,
+        letrero_alto: esLetreroEditar
+          ? parseFloat(pedidoEditar.letrero_alto) || null
+          : null,
+        letrero_largo: esLetreroEditar
+          ? parseFloat(pedidoEditar.letrero_largo) || null
+          : null,
+        precio_total: pedidoEditar.precio_total
+          ? parseFloat(pedidoEditar.precio_total)
+          : null,
         abono: pedidoEditar.abono ? parseFloat(pedidoEditar.abono) : 0,
       })
-      .eq("id", pedidoEditar.id)
+      .eq("id", pedidoEditar.id);
 
     if (!error) {
-      setModalEditar(false)
-      setPedidoEditar(null)
-      setEsLetreroEditar(false)
-      cargarPedidos()
-    toast.success('Guardado exitosamente', {
-    position: "bottom-right",
-    autoClose: 5000,
-    hideProgressBar: false,
-    closeOnClick: false,
-    pauseOnHover: true,
-    draggable: true,
-    theme: "dark",
-    transition: Zoom,
-  });
-
-    } else {
-      console.error(error.message)
+      if (!error) {
+  await registrarBloque({
+    entidad: "pedido",
+    entidad_id: pedidoEditar.id,
+    accion: "actualizado",
+    usuario_id: usuario?.id,
+    datosExtra: {
+      cliente_nombre: pedidoEditar.cliente_nombre,
+      estado: pedidoEditar.estado,
+      prioridad: pedidoEditar.prioridad,
     }
-  }
+  })
+      setModalEditar(false);
+      setPedidoEditar(null);
+      setEsLetreroEditar(false);
+      cargarPedidos();
+      toast.success("Guardado exitosamente", {
+        position: "bottom-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "dark",
+        transition: Zoom,
+      });
+    } else {
+      console.error(error.message);
+    }
+  }}
 
   const eliminarPedido = async (pedido) => {
-    const confirmar = window.confirm("¿Estás seguro de que quieres eliminar este pedido?")
-    if (!confirmar) return
+    const confirmar = window.confirm(
+      "¿Estás seguro de que quieres eliminar este pedido?",
+    );
+    if (!confirmar) return;
 
-    setProcesando(true)
+    setProcesando(true);
     try {
-      const disenos = pedido.disenos || []
+      const disenos = pedido.disenos || [];
       for (const diseno of disenos) {
         if (diseno.hash_archivo) {
-          await supabase.storage.from("disenos").remove([diseno.hash_archivo])
+          await supabase.storage.from("disenos").remove([diseno.hash_archivo]);
         }
       }
       if (disenos.length > 0) {
-        await supabase.from("disenos").delete().eq("pedido_id", pedido.id)
+        await supabase.from("disenos").delete().eq("pedido_id", pedido.id);
       }
-      const { error } = await supabase.from("pedidos").delete().eq("id", pedido.id)
-      if (error) throw error
-      cargarPedidos()
+      const { error } = await supabase
+        .from("pedidos")
+        .delete()
+        .eq("id", pedido.id);
+      if (error) throw error;
+      await registrarBloque({
+        entidad: "pedido",
+        entidad_id: pedido.id,
+        accion: "eliminado",
+        usuario_id: usuario?.id,
+        datosExtra: {
+          cliente_nombre: pedido.cliente_nombre,
+        },
+      });
+      cargarPedidos();
     } catch (e) {
-      console.error("Error al eliminar pedido:", e.message)
-      alert("Ocurrió un error al eliminar el pedido.")
+      console.error("Error al eliminar pedido:", e.message);
+      alert("Ocurrió un error al eliminar el pedido.");
     } finally {
-      setProcesando(false)
+      setProcesando(false);
     }
-  }
+  };
 
   const finalizarPedido = async (pedido) => {
     const confirmar = window.confirm(
-      `¿Finalizar el pedido de "${pedido.cliente_nombre}"?\n\nEsto eliminará el archivo de diseño del storage y ocultará el pedido de esta vista.`
-    )
-    if (!confirmar) return
+      `¿Finalizar el pedido de "${pedido.cliente_nombre}"?\n\nEsto eliminará el archivo de diseño del storage y ocultará el pedido de esta vista.`,
+    );
+    if (!confirmar) return;
 
-    setProcesando(true)
+    setProcesando(true);
     try {
-      const disenos = pedido.disenos || []
+      const disenos = pedido.disenos || [];
       for (const diseno of disenos) {
         if (diseno.hash_archivo) {
-          const { error: errStorage } = await supabase.storage.from("disenos").remove([diseno.hash_archivo])
-          if (errStorage) console.warn("No se pudo eliminar archivo del bucket:", errStorage.message)
+          const { error: errStorage } = await supabase.storage
+            .from("disenos")
+            .remove([diseno.hash_archivo]);
+          if (errStorage)
+            console.warn(
+              "No se pudo eliminar archivo del bucket:",
+              errStorage.message,
+            );
         }
       }
       if (disenos.length > 0) {
-        const { error: errDiseno } = await supabase.from("disenos").update({ archivo_url: null }).eq("pedido_id", pedido.id)
-        if (errDiseno) throw errDiseno
+        const { error: errDiseno } = await supabase
+          .from("disenos")
+          .update({ archivo_url: null })
+          .eq("pedido_id", pedido.id);
+        if (errDiseno) throw errDiseno;
       }
-      const { error: errPedido } = await supabase.from("pedidos").update({ estado: "terminado" }).eq("id", pedido.id)
-      if (errPedido) throw errPedido
+      const { error: errPedido } = await supabase
+        .from("pedidos")
+        .update({ estado: "terminado" })
+        .eq("id", pedido.id);
+      if (errPedido) throw errPedido;
 
       await supabase.from("historial").insert({
         pedido_id: pedido.id,
         accion: "terminado",
-        descripcion: "Pedido terminado por empleado. Archivos de diseño eliminados del bucket.",
-      })
-      cargarPedidos()
+        descripcion:
+          "Pedido terminado por empleado. Archivos de diseño eliminados del bucket.",
+      });
+      await registrarBloque({
+        entidad: "pedido",
+        entidad_id: pedido.id,
+        accion: "terminado",
+        usuario_id: usuario?.id,
+        datosExtra: {
+          cliente_nombre: pedido.cliente_nombre,
+          cantidad: pedido.cantidad,
+        },
+      });
+      cargarPedidos();
     } catch (e) {
-      console.error("Error al finalizar pedido:", e.message)
-      alert("Ocurrió un error al finalizar el pedido.")
+      console.error("Error al finalizar pedido:", e.message);
+      alert("Ocurrió un error al finalizar el pedido.");
     } finally {
-      setProcesando(false)
+      setProcesando(false);
     }
-  }
+  };
 
   const verificarStock = async (materialId) => {
-    if (!materialId) { setStockDisponible(null); return }
+    if (!materialId) {
+      setStockDisponible(null);
+      return;
+    }
     const { data } = await supabase
       .from("materiales")
       .select("stock, nombre, unidad, estado")
       .eq("id", materialId)
-      .single()
-    if (data) setStockDisponible(data)
-  }
+      .single();
+    if (data) setStockDisponible(data);
+  };
 
   // ─── MATERIALES ──────────────────────────────────────────────────────
 
   const handleChangeMaterial = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     if (name === "tipo_material") {
-      let defaults = {}
+      let defaults = {};
       if (value === "lona" || value === "vinil" || value === "laminacion") {
-        defaults = { largo: 50, unidad: "metros" }
+        defaults = { largo: 50, unidad: "metros" };
       } else if (value === "pvc" || value === "acrilico") {
-        defaults = { largo: 200, ancho: 150, unidad: "cm" }
+        defaults = { largo: 200, ancho: 150, unidad: "cm" };
       }
-      setNuevoMaterial({ ...nuevoMaterial, [name]: value, ...defaults })
-      return
+      setNuevoMaterial({ ...nuevoMaterial, [name]: value, ...defaults });
+      return;
     }
-    setNuevoMaterial({ ...nuevoMaterial, [name]: value })
-  }
+    setNuevoMaterial({ ...nuevoMaterial, [name]: value });
+  };
 
   const agregarMaterial = async () => {
-    if (!nuevoMaterial.nombre || !nuevoMaterial.tipo_material || !nuevoMaterial.stock) return
+    if (
+      !nuevoMaterial.nombre ||
+      !nuevoMaterial.tipo_material ||
+      !nuevoMaterial.stock
+    )
+      return;
 
     const { error } = await supabase.from("materiales").insert({
       nombre: nuevoMaterial.nombre.toUpperCase(),
       tipo_material: nuevoMaterial.tipo_material.toUpperCase(),
-      subtipo: nuevoMaterial.subtipo ? nuevoMaterial.subtipo.toUpperCase() : null,
+      subtipo: nuevoMaterial.subtipo
+        ? nuevoMaterial.subtipo.toUpperCase()
+        : null,
       ancho: nuevoMaterial.ancho ? parseFloat(nuevoMaterial.ancho) : null,
       largo: nuevoMaterial.largo ? parseFloat(nuevoMaterial.largo) : null,
       grosor: nuevoMaterial.grosor ? parseFloat(nuevoMaterial.grosor) : null,
       stock: parseFloat(nuevoMaterial.stock),
       unidad: nuevoMaterial.unidad,
       estado: nuevoMaterial.estado,
-    })
+    });
 
     if (!error) {
-      setMostrarModalMaterial(false)
-      setNuevoMaterial(materialInicial)
-      cargarMateriales()
-    toast.success('Guardado exitosamente', {
-    position: "bottom-right",
-    autoClose: 5000,
-    hideProgressBar: false,
-    closeOnClick: false,
-    pauseOnHover: true,
-    draggable: true,
-    theme: "dark",
-    transition: Zoom,
-  });
-    } else {
-      console.error(error.message)
+      await registrarBloque({
+    entidad: "material",
+    entidad_id: nuevoMaterial.nombre,
+    accion: "creado",
+    usuario_id: usuario?.id,
+    datosExtra: {
+      nombre: nuevoMaterial.nombre,
+      tipo_material: nuevoMaterial.tipo_material,
+      stock: nuevoMaterial.stock,
     }
-
-
-  }
+  })
+      setMostrarModalMaterial(false);
+      setNuevoMaterial(materialInicial);
+      cargarMateriales();
+      toast.success("Guardado exitosamente", {
+        position: "bottom-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "dark",
+        transition: Zoom,
+      });
+    } else {
+      console.error(error.message);
+    }
+  };
 
   const abrirEditarMaterial = (material) => {
-    setMaterialEditar({ ...material })
-    setModalEditarMaterial(true)
-  }
+    setMaterialEditar({ ...material });
+    setModalEditarMaterial(true);
+  };
 
   const handleChangeEditarMaterial = (e) => {
-    const { name, value } = e.target
-    setMaterialEditar({ ...materialEditar, [name]: value })
-  }
+    const { name, value } = e.target;
+    setMaterialEditar({ ...materialEditar, [name]: value });
+  };
 
   const guardarEdicionMaterial = async () => {
     const { error } = await supabase
@@ -404,67 +509,109 @@ const DashboardEmpleado = () => {
       .update({
         nombre: materialEditar.nombre.toUpperCase(),
         tipo_material: materialEditar.tipo_material.toUpperCase(),
-        subtipo: materialEditar.subtipo ? materialEditar.subtipo.toUpperCase() : null,
+        subtipo: materialEditar.subtipo
+          ? materialEditar.subtipo.toUpperCase()
+          : null,
         ancho: materialEditar.ancho ? parseFloat(materialEditar.ancho) : null,
         largo: materialEditar.largo ? parseFloat(materialEditar.largo) : null,
-        grosor: materialEditar.grosor ? parseFloat(materialEditar.grosor) : null,
+        grosor: materialEditar.grosor
+          ? parseFloat(materialEditar.grosor)
+          : null,
         stock: parseFloat(materialEditar.stock),
         unidad: materialEditar.unidad,
         estado: materialEditar.estado,
       })
-      .eq("id", materialEditar.id)
+      .eq("id", materialEditar.id);
 
     if (!error) {
-      setModalEditarMaterial(false)
-      setMaterialEditar(null)
-    toast.success('Guardado exitosamente', {
-    position: "bottom-right",
-    autoClose: 5000,
-    hideProgressBar: false,
-    closeOnClick: false,
-    pauseOnHover: true,
-    draggable: true,
-    theme: "dark",
-    transition: Zoom,
-  });
-      cargarMateriales()
-    } else {
-      console.error(error.message)
+        await registrarBloque({
+    entidad: "material",
+    entidad_id: materialEditar.id,
+    accion: "actualizado",
+    usuario_id: usuario?.id,
+    datosExtra: {
+      nombre: materialEditar.nombre,
+      stock: materialEditar.stock,
+      estado: materialEditar.estado,
     }
-  }
+  })
+      setModalEditarMaterial(false);
+      setMaterialEditar(null);
+      toast.success("Guardado exitosamente", {
+        position: "bottom-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "dark",
+        transition: Zoom,
+      });
+      cargarMateriales();
+    } else {
+      console.error(error.message);
+    }
+  };
 
   const eliminarMaterial = async (materialId) => {
-    const confirmar = window.confirm("¿Estás seguro de que quieres eliminar este material?")
-    if (!confirmar) return
+    const confirmar = window.confirm(
+      "¿Estás seguro de que quieres eliminar este material?",
+    );
+    if (!confirmar) return;
 
     const { data: pedidosAsociados, error: checkError } = await supabase
       .from("pedidos")
       .select("id")
       .eq("material_id", materialId)
-      .limit(1)
+      .limit(1);
 
-    if (checkError) { console.error(checkError.message); return }
+    if (checkError) {
+      console.error(checkError.message);
+      return;
+    }
 
     if (pedidosAsociados && pedidosAsociados.length > 0) {
       const { error: updateError } = await supabase
         .from("materiales")
         .update({ estado: "agotado" })
-        .eq("id", materialId)
-      if (updateError) { console.error(updateError.message); return }
-      alert("Este material tiene pedidos asociados. Se marcó como agotado en lugar de eliminarse.")
+        .eq("id", materialId);
+      if (updateError) {
+        console.error(updateError.message);
+        return;
+      }
+      alert(
+        "Este material tiene pedidos asociados. Se marcó como agotado en lugar de eliminarse.",
+      );
     } else {
-      const { error: deleteError } = await supabase.from("materiales").delete().eq("id", materialId)
-      if (deleteError) { console.error(deleteError.message); return }
+      const { error: deleteError } = await supabase
+        .from("materiales")
+        .delete()
+        .eq("id", materialId);
+      if (deleteError) {
+        console.error(deleteError.message);
+        return;
+      }
     }
-
-    cargarMateriales()
-  }
+if (!error) {
+  await registrarBloque({
+    entidad: "material",
+    entidad_id: id,
+    accion: "eliminado",
+    usuario_id: usuario?.id,
+    datosExtra: {
+      material_id: id,
+    }
+  })
+  cargarMateriales()
+} else {
+  console.error(error.message)
+}
+  };
 
   // ─── RENDER ──────────────────────────────────────────────────────────
 
   return (
     <div className="dashboard">
-
       {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="sidebar-logo">
@@ -472,34 +619,75 @@ const DashboardEmpleado = () => {
           <span>Taller</span>
         </div>
         <nav className="sidebar-nav">
-          <button className={`nav-item ${seccion === "pedidos" ? "active" : ""}`} onClick={() => setSeccion("pedidos")}>Pedidos</button>
-          <button className={`nav-item ${seccion === "materiales" ? "active" : ""}`} onClick={() => setSeccion("materiales")}>Materiales</button>
-          <button className={`nav-item ${seccion === "calculadora" ? "active" : ""}`} onClick={() => setSeccion("calculadora")}>Calculadora</button>
-          <button className={`nav-item ${seccion === "contabilidad" ? "active" : ""}`} onClick={() => setSeccion("contabilidad")}>Contabilidad</button>
+          <button
+            className={`nav-item ${seccion === "pedidos" ? "active" : ""}`}
+            onClick={() => setSeccion("pedidos")}
+          >
+            Pedidos
+          </button>
+          <button
+            className={`nav-item ${seccion === "materiales" ? "active" : ""}`}
+            onClick={() => setSeccion("materiales")}
+          >
+            Materiales
+          </button>
+          <button
+            className={`nav-item ${seccion === "calculadora" ? "active" : ""}`}
+            onClick={() => setSeccion("calculadora")}
+          >
+            Calculadora
+          </button>
+          <button
+            className={`nav-item ${seccion === "contabilidad" ? "active" : ""}`}
+            onClick={() => setSeccion("contabilidad")}
+          >
+            Contabilidad
+          </button>
+          <button
+            className={`nav-item ${seccion === "blockchain" ? "active" : ""}`}
+            onClick={() => setSeccion("blockchain")}
+          >
+            🔗 Blockchain
+          </button>
         </nav>
-        <button className="sidebar-logout" onClick={cambiarsesion}>Cambiar sesión</button>
-        <button className="sidebar-logout" onClick={cerrarSesion}>Cerrar sesión</button>
+        <button className="sidebar-logout" onClick={cambiarsesion}>
+          Cambiar sesión
+        </button>
+        <button className="sidebar-logout" onClick={cerrarSesion}>
+          Cerrar sesión
+        </button>
       </aside>
 
       {/* CONTENIDO PRINCIPAL */}
       <main className="dashboard-main">
         <header className="dashboard-header">
           <h1>
-            {seccion === "pedidos" ? "Pedidos en Producción"
-              : seccion === "materiales" ? "Materiales"
-              : seccion === "contabilidad" ? "Contabilidad"
-              : "Calculadora"}
+            {seccion === "pedidos"
+              ? "Pedidos en Producción"
+              : seccion === "materiales"
+                ? "Materiales"
+                : seccion === "contabilidad"
+                  ? "Contabilidad"
+                  : seccion === "blockchain"
+                    ? "Blockchain"
+                    : "Calculadora"}
           </h1>
           {seccion === "pedidos" && (
-            <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>+ Nuevo Pedido</button>
+            <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>
+              + Nuevo Pedido
+            </button>
           )}
           {seccion === "materiales" && (
-            <button className="btn-nuevo" onClick={() => setMostrarModalMaterial(true)}>+ Nuevo Material</button>
+            <button
+              className="btn-nuevo"
+              onClick={() => setMostrarModalMaterial(true)}
+            >
+              + Nuevo Material
+            </button>
           )}
         </header>
 
         <div className="dashboard-content">
-
           {/* SECCIÓN PEDIDOS */}
           {seccion === "pedidos" && (
             <div className="seccion">
@@ -527,17 +715,64 @@ const DashboardEmpleado = () => {
                         <tr key={pedido.id}>
                           <td>{pedido.cliente_nombre || "—"}</td>
                           <td>{pedido.cliente_contacto || "—"}</td>
-                          <td><span className="badge" style={{ background: colorEstado(pedido.estado) }}>{pedido.estado}</span></td>
-                          <td><span className="badge" style={{ background: colorPrioridad(pedido.prioridad) }}>{pedido.prioridad}</span></td>
+                          <td>
+                            <span
+                              className="badge"
+                              style={{ background: colorEstado(pedido.estado) }}
+                            >
+                              {pedido.estado}
+                            </span>
+                          </td>
+                          <td>
+                            <span
+                              className="badge"
+                              style={{
+                                background: colorPrioridad(pedido.prioridad),
+                              }}
+                            >
+                              {pedido.prioridad}
+                            </span>
+                          </td>
                           <td>{pedido.cantidad}</td>
                           <td>{pedido.perfil_impresion || "—"}</td>
                           <td>{pedido.fecha_entrega || "—"}</td>
                           <td>
-                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                              <button className="btn-accion" onClick={() => { setPedidoVer(pedido); setModalVerPedido(true) }}>Ver</button>
-                              <button className="btn-accion" onClick={() => abrirEditar(pedido)}>Editar</button>
-                              <button className="btn-eliminar" disabled={procesando} onClick={() => eliminarPedido(pedido)}>Eliminar</button>
-                              <button className="btn-finalizar" disabled={procesando} onClick={() => finalizarPedido(pedido)}>✓ Finalizar</button>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "6px",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <button
+                                className="btn-accion"
+                                onClick={() => {
+                                  setPedidoVer(pedido);
+                                  setModalVerPedido(true);
+                                }}
+                              >
+                                Ver
+                              </button>
+                              <button
+                                className="btn-accion"
+                                onClick={() => abrirEditar(pedido)}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                className="btn-eliminar"
+                                disabled={procesando}
+                                onClick={() => eliminarPedido(pedido)}
+                              >
+                                Eliminar
+                              </button>
+                              <button
+                                className="btn-finalizar"
+                                disabled={procesando}
+                                onClick={() => finalizarPedido(pedido)}
+                              >
+                                ✓ Finalizar
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -553,7 +788,9 @@ const DashboardEmpleado = () => {
           {seccion === "materiales" && (
             <div className="seccion">
               {materiales.length === 0 ? (
-                <p className="texto-secondary">No hay materiales registrados aún.</p>
+                <p className="texto-secondary">
+                  No hay materiales registrados aún.
+                </p>
               ) : (
                 <div className="tabla-wrapper">
                   <table className="tabla">
@@ -581,14 +818,34 @@ const DashboardEmpleado = () => {
                           <td>{mat.stock}</td>
                           <td>{mat.subtipo || "—"}</td>
                           <td>
-                            <span className="badge" style={{
-                              background: mat.estado === "disponible" ? "#22c55e" : mat.estado === "bajo_stock" ? "#f59e0b" : "#ef4444"
-                            }}>{mat.estado}</span>
+                            <span
+                              className="badge"
+                              style={{
+                                background:
+                                  mat.estado === "disponible"
+                                    ? "#22c55e"
+                                    : mat.estado === "bajo_stock"
+                                      ? "#f59e0b"
+                                      : "#ef4444",
+                              }}
+                            >
+                              {mat.estado}
+                            </span>
                           </td>
                           <td>
                             <div style={{ display: "flex", gap: "8px" }}>
-                              <button className="btn-accion" onClick={() => abrirEditarMaterial(mat)}>Editar</button>
-                              <button className="btn-eliminar" onClick={() => eliminarMaterial(mat.id)}>Eliminar</button>
+                              <button
+                                className="btn-accion"
+                                onClick={() => abrirEditarMaterial(mat)}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                className="btn-eliminar"
+                                onClick={() => eliminarMaterial(mat.id)}
+                              >
+                                Eliminar
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -602,7 +859,7 @@ const DashboardEmpleado = () => {
 
           {seccion === "calculadora" && <Calculadora />}
           {seccion === "contabilidad" && <Contabilidad usuario={usuario} />}
-
+          {seccion === "blockchain" && <BlockchainViewer />}
         </div>
       </main>
 
@@ -612,14 +869,29 @@ const DashboardEmpleado = () => {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Pedido — {pedidoVer.cliente_nombre}</h3>
             <div className="modal-grid">
-
               <div className="modal-field">
                 <label>Estado</label>
-                <span className="badge" style={{ background: colorEstado(pedidoVer.estado), display: "inline-block" }}>{pedidoVer.estado}</span>
+                <span
+                  className="badge"
+                  style={{
+                    background: colorEstado(pedidoVer.estado),
+                    display: "inline-block",
+                  }}
+                >
+                  {pedidoVer.estado}
+                </span>
               </div>
               <div className="modal-field">
                 <label>Prioridad</label>
-                <span className="badge" style={{ background: colorPrioridad(pedidoVer.prioridad), display: "inline-block" }}>{pedidoVer.prioridad}</span>
+                <span
+                  className="badge"
+                  style={{
+                    background: colorPrioridad(pedidoVer.prioridad),
+                    display: "inline-block",
+                  }}
+                >
+                  {pedidoVer.prioridad}
+                </span>
               </div>
               <div className="modal-field">
                 <label>Contacto</label>
@@ -627,7 +899,10 @@ const DashboardEmpleado = () => {
               </div>
               <div className="modal-field">
                 <label>Cantidad</label>
-                <p>{pedidoVer.cantidad}{pedidoVer.descuento ? " ✅ (con descuento)" : ""}</p>
+                <p>
+                  {pedidoVer.cantidad}
+                  {pedidoVer.descuento ? " ✅ (con descuento)" : ""}
+                </p>
               </div>
               <div className="modal-field">
                 <label>Perfil de impresión</label>
@@ -643,7 +918,9 @@ const DashboardEmpleado = () => {
               </div>
               <div className="modal-field">
                 <label>Fecha de creación</label>
-                <p>{new Date(pedidoVer.created_at).toLocaleDateString("es-EC")}</p>
+                <p>
+                  {new Date(pedidoVer.created_at).toLocaleDateString("es-EC")}
+                </p>
               </div>
 
               {/* PRECIO / ABONO / SALDO */}
@@ -651,16 +928,32 @@ const DashboardEmpleado = () => {
                 <>
                   <div className="modal-field">
                     <label>Precio total</label>
-                    <p style={{ color: "#22c55e", fontWeight: 700, fontSize: "16px" }}>{fmt(pedidoVer.precio_total)}</p>
+                    <p
+                      style={{
+                        color: "#22c55e",
+                        fontWeight: 700,
+                        fontSize: "16px",
+                      }}
+                    >
+                      {fmt(pedidoVer.precio_total)}
+                    </p>
                   </div>
                   <div className="modal-field">
                     <label>Abono</label>
-                    <p style={{ color: "#4f6ef7", fontWeight: 600 }}>{fmt(pedidoVer.abono)}</p>
+                    <p style={{ color: "#4f6ef7", fontWeight: 600 }}>
+                      {fmt(pedidoVer.abono)}
+                    </p>
                   </div>
                   <div className="modal-field">
                     <label>Saldo pendiente</label>
-                    <p style={{ color: pedidoVer.saldo > 0 ? "#f59e0b" : "#22c55e", fontWeight: 700 }}>
-                      {fmt(pedidoVer.saldo)}{pedidoVer.saldo <= 0 && " ✅ Pagado"}
+                    <p
+                      style={{
+                        color: pedidoVer.saldo > 0 ? "#f59e0b" : "#22c55e",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {fmt(pedidoVer.saldo)}
+                      {pedidoVer.saldo <= 0 && " ✅ Pagado"}
                     </p>
                   </div>
                 </>
@@ -668,10 +961,16 @@ const DashboardEmpleado = () => {
 
               {pedidoVer.letrero_tipo && (
                 <>
-                  <div className="modal-field"><label>Tipo de letrero</label><p>{pedidoVer.letrero_tipo}</p></div>
+                  <div className="modal-field">
+                    <label>Tipo de letrero</label>
+                    <p>{pedidoVer.letrero_tipo}</p>
+                  </div>
                   <div className="modal-field">
                     <label>Dimensiones</label>
-                    <p>{pedidoVer.letrero_alto ?? "?"} × {pedidoVer.letrero_largo ?? "?"} cm</p>
+                    <p>
+                      {pedidoVer.letrero_alto ?? "?"} ×{" "}
+                      {pedidoVer.letrero_largo ?? "?"} cm
+                    </p>
                   </div>
                 </>
               )}
@@ -679,7 +978,9 @@ const DashboardEmpleado = () => {
               {pedidoVer.especificaciones && (
                 <div className="modal-field modal-field-full">
                   <label>Especificaciones</label>
-                  <p style={{ whiteSpace: "pre-wrap" }}>{pedidoVer.especificaciones}</p>
+                  <p style={{ whiteSpace: "pre-wrap" }}>
+                    {pedidoVer.especificaciones}
+                  </p>
                 </div>
               )}
 
@@ -687,20 +988,41 @@ const DashboardEmpleado = () => {
                 <div className="modal-field modal-field-full">
                   <label>Diseño</label>
                   {pedidoVer.disenos.map((d) => (
-                    <div key={d.id} style={{ marginTop: "6px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      key={d.id}
+                      style={{
+                        marginTop: "6px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
                       {d.archivo_url ? (
-                        <a href={d.archivo_url} target="_blank" rel="noreferrer" style={{ color: "#4f6ef7", fontSize: "13px" }}>Ver archivo ↗</a>
+                        <a
+                          href={d.archivo_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: "#4f6ef7", fontSize: "13px" }}
+                        >
+                          Ver archivo ↗
+                        </a>
                       ) : (
-                        <span style={{ color: "#64748b", fontSize: "13px" }}>Sin archivo / ya eliminado</span>
+                        <span style={{ color: "#64748b", fontSize: "13px" }}>
+                          Sin archivo / ya eliminado
+                        </span>
                       )}
                     </div>
                   ))}
                 </div>
               )}
-
             </div>
             <div className="modal-buttons">
-              <button onClick={() => setModalVerPedido(false)} className="btn-cancelar">Cerrar</button>
+              <button
+                onClick={() => setModalVerPedido(false)}
+                className="btn-cancelar"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>
@@ -712,29 +1034,51 @@ const DashboardEmpleado = () => {
           <div className="modal">
             <h3>Nuevo Pedido</h3>
             <div className="modal-grid">
-
               <div className="modal-field">
                 <label>Nombre del cliente</label>
-                <input type="text" name="cliente_nombre" placeholder="Ej: Juan Pérez"
-                  value={nuevoPedido.cliente_nombre} onChange={handleChangePedido} />
+                <input
+                  type="text"
+                  name="cliente_nombre"
+                  placeholder="Ej: Juan Pérez"
+                  value={nuevoPedido.cliente_nombre}
+                  onChange={handleChangePedido}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Contacto</label>
-                <input type="text" name="cliente_contacto" placeholder="Teléfono o correo"
-                  value={nuevoPedido.cliente_contacto} onChange={handleChangePedido} />
+                <input
+                  type="text"
+                  name="cliente_contacto"
+                  placeholder="Teléfono o correo"
+                  value={nuevoPedido.cliente_contacto}
+                  onChange={handleChangePedido}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Cantidad</label>
-                <input type="number" name="cantidad" min="1"
-                  value={nuevoPedido.cantidad} onChange={handleChangePedido} />
-                {nuevoPedido.descuento && <span className="descuento-aviso">✅ Aplica descuento por volumen</span>}
+                <input
+                  type="number"
+                  name="cantidad"
+                  min="1"
+                  value={nuevoPedido.cantidad}
+                  onChange={handleChangePedido}
+                />
+                {nuevoPedido.descuento && (
+                  <span className="descuento-aviso">
+                    ✅ Aplica descuento por volumen
+                  </span>
+                )}
               </div>
 
               <div className="modal-field">
                 <label>Prioridad</label>
-                <select name="prioridad" value={nuevoPedido.prioridad} onChange={handleChangePedido}>
+                <select
+                  name="prioridad"
+                  value={nuevoPedido.prioridad}
+                  onChange={handleChangePedido}
+                >
                   <option value="baja">Baja</option>
                   <option value="media">Media</option>
                   <option value="alta">Alta</option>
@@ -743,24 +1087,61 @@ const DashboardEmpleado = () => {
 
               <div className="modal-field">
                 <label>Precio del pedido ($)</label>
-                <input type="number" name="precio_total" min="0" step="0.01" placeholder="0.00"
-                  value={nuevoPedido.precio_total} onChange={handleChangePedido} />
+                <input
+                  type="number"
+                  name="precio_total"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={nuevoPedido.precio_total}
+                  onChange={handleChangePedido}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Abono del cliente ($)</label>
-                <input type="number" name="abono" min="0" step="0.01" placeholder="0.00"
-                  value={nuevoPedido.abono} onChange={handleChangePedido} />
+                <input
+                  type="number"
+                  name="abono"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={nuevoPedido.abono}
+                  onChange={handleChangePedido}
+                />
                 {nuevoPedido.precio_total && (
-                  <span style={{ fontSize: "12px", color: "#f59e0b", marginTop: "4px", display: "block" }}>
-                    Saldo pendiente: ${(parseFloat(nuevoPedido.precio_total || 0) - parseFloat(nuevoPedido.abono || 0)).toFixed(2)}
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: "#f59e0b",
+                      marginTop: "4px",
+                      display: "block",
+                    }}
+                  >
+                    Saldo pendiente: $
+                    {(
+                      parseFloat(nuevoPedido.precio_total || 0) -
+                      parseFloat(nuevoPedido.abono || 0)
+                    ).toFixed(2)}
                   </span>
                 )}
               </div>
 
               <div className="modal-field modal-field-full">
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                  <input type="checkbox" name="esLetrero" checked={nuevoPedido.esLetrero} onChange={handleChangePedido} />
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    name="esLetrero"
+                    checked={nuevoPedido.esLetrero}
+                    onChange={handleChangePedido}
+                  />
                   ¿Es letrero?
                 </label>
               </div>
@@ -768,19 +1149,41 @@ const DashboardEmpleado = () => {
               {!nuevoPedido.esLetrero && (
                 <div className="modal-field modal-field-full">
                   <label>Material</label>
-                  <select name="material_id" value={nuevoPedido.material_id || ""} onChange={handleChangePedido}>
+                  <select
+                    name="material_id"
+                    value={nuevoPedido.material_id || ""}
+                    onChange={handleChangePedido}
+                  >
                     <option value="">Seleccionar material...</option>
                     {materiales.map((mat) => (
                       <option key={mat.id} value={mat.id}>
-                        {mat.nombre} {mat.subtipo ? `(${mat.subtipo})` : ""} — Stock: {mat.stock} {mat.unidad}
+                        {mat.nombre} {mat.subtipo ? `(${mat.subtipo})` : ""} —
+                        Stock: {mat.stock} {mat.unidad}
                       </option>
                     ))}
                   </select>
                   {stockDisponible && stockDisponible.stock > 0 && (
-                    <span style={{ fontSize: "12px", color: "#22c55e", marginTop: "4px" }}>✅ Stock disponible: {stockDisponible.stock} {stockDisponible.unidad}</span>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "#22c55e",
+                        marginTop: "4px",
+                      }}
+                    >
+                      ✅ Stock disponible: {stockDisponible.stock}{" "}
+                      {stockDisponible.unidad}
+                    </span>
                   )}
                   {stockDisponible && stockDisponible.stock === 0 && (
-                    <span style={{ fontSize: "12px", color: "#ef4444", marginTop: "4px" }}>⚠️ Sin stock. El pedido se registrará como "sin_material"</span>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "#ef4444",
+                        marginTop: "4px",
+                      }}
+                    >
+                      ⚠️ Sin stock. El pedido se registrará como "sin_material"
+                    </span>
                   )}
                 </div>
               )}
@@ -789,31 +1192,51 @@ const DashboardEmpleado = () => {
                 <>
                   <div className="modal-field">
                     <label>Tipo de letrero</label>
-                    <select name="letrero_tipo" value={nuevoPedido.letrero_tipo} onChange={handleChangePedido}>
+                    <select
+                      name="letrero_tipo"
+                      value={nuevoPedido.letrero_tipo}
+                      onChange={handleChangePedido}
+                    >
                       <option value="">Seleccionar...</option>
                       <option value="luminoso">Luminoso</option>
                       <option value="no_luminoso">No luminoso</option>
-                      <option value="backlight">Backlight</option>
-                      <option value="acrilico">Acrílico</option>
+                      <option value="madera">Madera</option>
+                      <option value="Metal">Metal</option>
                       <option value="otro">Otro</option>
                     </select>
                   </div>
                   <div className="modal-field">
                     <label>Alto (cm)</label>
-                    <input type="number" name="letrero_alto" min="0" placeholder="ej: 60"
-                      value={nuevoPedido.letrero_alto} onChange={handleChangePedido} />
+                    <input
+                      type="number"
+                      name="letrero_alto"
+                      min="0"
+                      placeholder="ej: 60"
+                      value={nuevoPedido.letrero_alto}
+                      onChange={handleChangePedido}
+                    />
                   </div>
                   <div className="modal-field">
                     <label>Largo (cm)</label>
-                    <input type="number" name="letrero_largo" min="0" placeholder="ej: 120"
-                      value={nuevoPedido.letrero_largo} onChange={handleChangePedido} />
+                    <input
+                      type="number"
+                      name="letrero_largo"
+                      min="0"
+                      placeholder="ej: 120"
+                      value={nuevoPedido.letrero_largo}
+                      onChange={handleChangePedido}
+                    />
                   </div>
                 </>
               )}
 
               <div className="modal-field">
                 <label>Configuración</label>
-                <select name="configuracion" value={nuevoPedido.configuracion} onChange={handleChangePedido}>
+                <select
+                  name="configuracion"
+                  value={nuevoPedido.configuracion}
+                  onChange={handleChangePedido}
+                >
                   <option value="">Seleccionar...</option>
                   <option value="BIDI">BIDI</option>
                   <option value="ONE WAY">ONE WAY</option>
@@ -823,19 +1246,38 @@ const DashboardEmpleado = () => {
 
               <div className="modal-field">
                 <label>Fecha de entrega</label>
-                <input type="date" name="fecha_entrega" value={nuevoPedido.fecha_entrega} onChange={handleChangePedido} />
+                <input
+                  type="date"
+                  name="fecha_entrega"
+                  value={nuevoPedido.fecha_entrega}
+                  onChange={handleChangePedido}
+                />
               </div>
 
               <div className="modal-field modal-field-full">
                 <label>Especificaciones</label>
-                <textarea name="especificaciones" placeholder="Detalles del trabajo..."
-                  value={nuevoPedido.especificaciones} onChange={handleChangePedido} rows={3} />
+                <textarea
+                  name="especificaciones"
+                  placeholder="Detalles del trabajo..."
+                  value={nuevoPedido.especificaciones}
+                  onChange={handleChangePedido}
+                  rows={3}
+                />
               </div>
-
             </div>
             <div className="modal-buttons">
-              <button onClick={agregarPedido} className="btn-guardar">Guardar</button>
-              <button onClick={() => { setMostrarModal(false); setNuevoPedido(pedidoInicial) }} className="btn-cancelar">Cancelar</button>
+              <button onClick={agregarPedido} className="btn-guardar">
+                Guardar
+              </button>
+              <button
+                onClick={() => {
+                  setMostrarModal(false);
+                  setNuevoPedido(pedidoInicial);
+                }}
+                className="btn-cancelar"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
@@ -847,10 +1289,13 @@ const DashboardEmpleado = () => {
           <div className="modal">
             <h3>Editar Pedido — {pedidoEditar.cliente_nombre}</h3>
             <div className="modal-grid">
-
               <div className="modal-field">
                 <label>Estado</label>
-                <select name="estado" value={pedidoEditar.estado} onChange={handleChangeEditar}>
+                <select
+                  name="estado"
+                  value={pedidoEditar.estado}
+                  onChange={handleChangeEditar}
+                >
                   <option value="pendiente">Pendiente</option>
                   <option value="en_diseño">En diseño</option>
                   <option value="en_impresion">En impresión</option>
@@ -861,7 +1306,11 @@ const DashboardEmpleado = () => {
 
               <div className="modal-field">
                 <label>Prioridad</label>
-                <select name="prioridad" value={pedidoEditar.prioridad} onChange={handleChangeEditar}>
+                <select
+                  name="prioridad"
+                  value={pedidoEditar.prioridad}
+                  onChange={handleChangeEditar}
+                >
                   <option value="baja">Baja</option>
                   <option value="media">Media</option>
                   <option value="alta">Alta</option>
@@ -870,40 +1319,87 @@ const DashboardEmpleado = () => {
 
               <div className="modal-field">
                 <label>Contacto cliente</label>
-                <input type="text" name="cliente_contacto" value={pedidoEditar.cliente_contacto || ""} onChange={handleChangeEditar} />
+                <input
+                  type="text"
+                  name="cliente_contacto"
+                  value={pedidoEditar.cliente_contacto || ""}
+                  onChange={handleChangeEditar}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Cantidad</label>
-                <input type="number" name="cantidad" min="1" value={pedidoEditar.cantidad || 1} onChange={handleChangeEditar} />
-                {parseInt(pedidoEditar.cantidad) > 10 && <span className="descuento-aviso">✅ Aplica descuento por volumen</span>}
+                <input
+                  type="number"
+                  name="cantidad"
+                  min="1"
+                  value={pedidoEditar.cantidad || 1}
+                  onChange={handleChangeEditar}
+                />
+                {parseInt(pedidoEditar.cantidad) > 10 && (
+                  <span className="descuento-aviso">
+                    ✅ Aplica descuento por volumen
+                  </span>
+                )}
               </div>
 
               <div className="modal-field">
                 <label>Precio del pedido ($)</label>
-                <input type="number" name="precio_total" min="0" step="0.01"
-                  value={pedidoEditar.precio_total || ""} onChange={handleChangeEditar} />
+                <input
+                  type="number"
+                  name="precio_total"
+                  min="0"
+                  step="0.01"
+                  value={pedidoEditar.precio_total || ""}
+                  onChange={handleChangeEditar}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Abono del cliente ($)</label>
-                <input type="number" name="abono" min="0" step="0.01"
-                  value={pedidoEditar.abono || ""} onChange={handleChangeEditar} />
+                <input
+                  type="number"
+                  name="abono"
+                  min="0"
+                  step="0.01"
+                  value={pedidoEditar.abono || ""}
+                  onChange={handleChangeEditar}
+                />
                 {pedidoEditar.precio_total && (
-                  <span style={{ fontSize: "12px", color: "#f59e0b", marginTop: "4px", display: "block" }}>
-                    Saldo pendiente: ${(parseFloat(pedidoEditar.precio_total || 0) - parseFloat(pedidoEditar.abono || 0)).toFixed(2)}
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: "#f59e0b",
+                      marginTop: "4px",
+                      display: "block",
+                    }}
+                  >
+                    Saldo pendiente: $
+                    {(
+                      parseFloat(pedidoEditar.precio_total || 0) -
+                      parseFloat(pedidoEditar.abono || 0)
+                    ).toFixed(2)}
                   </span>
                 )}
               </div>
 
               <div className="modal-field">
                 <label>Perfil de impresión</label>
-                <input type="text" name="perfil_impresion" value={pedidoEditar.perfil_impresion || ""} onChange={handleChangeEditar} />
+                <input
+                  type="text"
+                  name="perfil_impresion"
+                  value={pedidoEditar.perfil_impresion || ""}
+                  onChange={handleChangeEditar}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Configuración</label>
-                <select name="configuracion" value={pedidoEditar.configuracion || ""} onChange={handleChangeEditar}>
+                <select
+                  name="configuracion"
+                  value={pedidoEditar.configuracion || ""}
+                  onChange={handleChangeEditar}
+                >
                   <option value="">Seleccionar...</option>
                   <option value="BIDI">BIDI</option>
                   <option value="ONE WAY">ONE WAY</option>
@@ -913,21 +1409,47 @@ const DashboardEmpleado = () => {
 
               <div className="modal-field">
                 <label>Fecha de entrega</label>
-                <input type="date" name="fecha_entrega" value={pedidoEditar.fecha_entrega || ""} onChange={handleChangeEditar} />
+                <input
+                  type="date"
+                  name="fecha_entrega"
+                  value={pedidoEditar.fecha_entrega || ""}
+                  onChange={handleChangeEditar}
+                />
               </div>
 
               <div className="modal-field modal-field-full">
                 <label>Especificaciones</label>
-                <textarea name="especificaciones" value={pedidoEditar.especificaciones || ""} onChange={handleChangeEditar} rows={3} />
+                <textarea
+                  name="especificaciones"
+                  value={pedidoEditar.especificaciones || ""}
+                  onChange={handleChangeEditar}
+                  rows={3}
+                />
               </div>
 
               <div className="modal-field modal-field-full">
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
-                  <input type="checkbox" checked={esLetreroEditar}
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={esLetreroEditar}
                     onChange={(e) => {
-                      setEsLetreroEditar(e.target.checked)
-                      if (!e.target.checked) setPedidoEditar({ ...pedidoEditar, letrero_tipo: "", letrero_alto: "", letrero_largo: "" })
-                    }} />
+                      setEsLetreroEditar(e.target.checked);
+                      if (!e.target.checked)
+                        setPedidoEditar({
+                          ...pedidoEditar,
+                          letrero_tipo: "",
+                          letrero_alto: "",
+                          letrero_largo: "",
+                        });
+                    }}
+                  />
                   ¿Es letrero?
                 </label>
               </div>
@@ -936,30 +1458,56 @@ const DashboardEmpleado = () => {
                 <>
                   <div className="modal-field">
                     <label>Tipo de letrero</label>
-                    <select name="letrero_tipo" value={pedidoEditar.letrero_tipo || ""} onChange={handleChangeEditar}>
+                    <select
+                      name="letrero_tipo"
+                      value={pedidoEditar.letrero_tipo || ""}
+                      onChange={handleChangeEditar}
+                    >
                       <option value="">Seleccionar...</option>
                       <option value="luminoso">Luminoso</option>
                       <option value="no_luminoso">No luminoso</option>
-                      <option value="backlight">Backlight</option>
-                      <option value="acrilico">Acrílico</option>
+                      <option value="Madera">Madera</option>
+                      <option value="Metal">Metal</option>
                       <option value="otro">Otro</option>
                     </select>
                   </div>
                   <div className="modal-field">
                     <label>Alto (cm)</label>
-                    <input type="number" name="letrero_alto" min="0" value={pedidoEditar.letrero_alto || ""} onChange={handleChangeEditar} />
+                    <input
+                      type="number"
+                      name="letrero_alto"
+                      min="0"
+                      value={pedidoEditar.letrero_alto || ""}
+                      onChange={handleChangeEditar}
+                    />
                   </div>
                   <div className="modal-field">
                     <label>Largo (cm)</label>
-                    <input type="number" name="letrero_largo" min="0" value={pedidoEditar.letrero_largo || ""} onChange={handleChangeEditar} />
+                    <input
+                      type="number"
+                      name="letrero_largo"
+                      min="0"
+                      value={pedidoEditar.letrero_largo || ""}
+                      onChange={handleChangeEditar}
+                    />
                   </div>
                 </>
               )}
-
             </div>
             <div className="modal-buttons">
-              <button onClick={guardarEdicion} className="btn-guardar">Guardar cambios</button>
-              <button onClick={() => { setModalEditar(false); setPedidoEditar(null); setEsLetreroEditar(false) }} className="btn-cancelar">Cancelar</button>
+              <button onClick={guardarEdicion} className="btn-guardar">
+                Guardar cambios
+              </button>
+              <button
+                onClick={() => {
+                  setModalEditar(false);
+                  setPedidoEditar(null);
+                  setEsLetreroEditar(false);
+                }}
+                className="btn-cancelar"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
@@ -971,16 +1519,24 @@ const DashboardEmpleado = () => {
           <div className="modal">
             <h3>Nuevo Material</h3>
             <div className="modal-grid">
-
               <div className="modal-field">
                 <label>Nombre</label>
-                <input type="text" name="nombre" placeholder="Ej: Lona front"
-                  value={nuevoMaterial.nombre} onChange={handleChangeMaterial} />
+                <input
+                  type="text"
+                  name="nombre"
+                  placeholder="Ej: Lona front"
+                  value={nuevoMaterial.nombre}
+                  onChange={handleChangeMaterial}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Tipo de material</label>
-                <select name="tipo_material" value={nuevoMaterial.tipo_material} onChange={handleChangeMaterial}>
+                <select
+                  name="tipo_material"
+                  value={nuevoMaterial.tipo_material}
+                  onChange={handleChangeMaterial}
+                >
                   <option value="">Seleccionar...</option>
                   <option value="lona">Lona</option>
                   <option value="lona_translucida">Lona Translúcida</option>
@@ -991,13 +1547,20 @@ const DashboardEmpleado = () => {
                 </select>
               </div>
 
-              {(nuevoMaterial.tipo_material === "lona" || nuevoMaterial.tipo_material === "lona_translucida" ||
-                nuevoMaterial.tipo_material === "vinil" || nuevoMaterial.tipo_material === "laminacion") && (
+              {(nuevoMaterial.tipo_material === "lona" ||
+                nuevoMaterial.tipo_material === "lona_translucida" ||
+                nuevoMaterial.tipo_material === "vinil" ||
+                nuevoMaterial.tipo_material === "laminacion") && (
                 <div className="modal-field">
                   <label>Ancho (cm)</label>
-                  <select name="ancho" value={nuevoMaterial.ancho} onChange={handleChangeMaterial}>
+                  <select
+                    name="ancho"
+                    value={nuevoMaterial.ancho}
+                    onChange={handleChangeMaterial}
+                  >
                     <option value="">Seleccionar...</option>
-                    {nuevoMaterial.tipo_material === "vinil" || nuevoMaterial.tipo_material === "laminacion" ? (
+                    {nuevoMaterial.tipo_material === "vinil" ||
+                    nuevoMaterial.tipo_material === "laminacion" ? (
                       <option value="152">152 cm</option>
                     ) : (
                       <>
@@ -1010,39 +1573,66 @@ const DashboardEmpleado = () => {
                 </div>
               )}
 
-              {(nuevoMaterial.tipo_material === "pvc" || nuevoMaterial.tipo_material === "acrilico") && (
+              {(nuevoMaterial.tipo_material === "pvc" ||
+                nuevoMaterial.tipo_material === "acrilico") && (
                 <div className="modal-field">
                   <label>Grosor (mm)</label>
-                  <select name="grosor" value={nuevoMaterial.grosor} onChange={handleChangeMaterial}>
+                  <select
+                    name="grosor"
+                    value={nuevoMaterial.grosor}
+                    onChange={handleChangeMaterial}
+                  >
                     <option value="">Seleccionar...</option>
                     <option value="2">2 mm</option>
                     <option value="3">3 mm</option>
-                    {nuevoMaterial.tipo_material === "pvc" && <option value="4">4 mm</option>}
+                    {nuevoMaterial.tipo_material === "pvc" && (
+                      <option value="4">4 mm</option>
+                    )}
                   </select>
                 </div>
               )}
 
-              {(nuevoMaterial.tipo_material === "lona" || nuevoMaterial.tipo_material === "lona_translucida" ||
-                nuevoMaterial.tipo_material === "vinil" || nuevoMaterial.tipo_material === "laminacion") && (
+              {(nuevoMaterial.tipo_material === "lona" ||
+                nuevoMaterial.tipo_material === "lona_translucida" ||
+                nuevoMaterial.tipo_material === "vinil" ||
+                nuevoMaterial.tipo_material === "laminacion") && (
                 <div className="modal-field">
                   <label>Rollos disponibles</label>
-                  <input type="number" name="stock" min="0" placeholder="Cantidad"
-                    value={nuevoMaterial.stock} onChange={handleChangeMaterial} />
+                  <input
+                    type="number"
+                    name="stock"
+                    min="0"
+                    placeholder="Cantidad"
+                    value={nuevoMaterial.stock}
+                    onChange={handleChangeMaterial}
+                  />
                 </div>
               )}
 
-              {(nuevoMaterial.tipo_material === "pvc" || nuevoMaterial.tipo_material === "acrilico") && (
+              {(nuevoMaterial.tipo_material === "pvc" ||
+                nuevoMaterial.tipo_material === "acrilico") && (
                 <div className="modal-field">
                   <label>Planchas disponibles</label>
-                  <input type="number" name="stock" min="0" placeholder="Cantidad"
-                    value={nuevoMaterial.stock} onChange={handleChangeMaterial} />
+                  <input
+                    type="number"
+                    name="stock"
+                    min="0"
+                    placeholder="Cantidad"
+                    value={nuevoMaterial.stock}
+                    onChange={handleChangeMaterial}
+                  />
                 </div>
               )}
 
-              {(nuevoMaterial.tipo_material === "vinil" || nuevoMaterial.tipo_material === "laminacion") && (
+              {(nuevoMaterial.tipo_material === "vinil" ||
+                nuevoMaterial.tipo_material === "laminacion") && (
                 <div className="modal-field">
                   <label>Subtipo</label>
-                  <select name="subtipo" value={nuevoMaterial.subtipo || ""} onChange={handleChangeMaterial}>
+                  <select
+                    name="subtipo"
+                    value={nuevoMaterial.subtipo || ""}
+                    onChange={handleChangeMaterial}
+                  >
                     <option value="">Seleccionar...</option>
                     <option value="brillo">Brillo</option>
                     <option value="mate">Mate</option>
@@ -1052,18 +1642,31 @@ const DashboardEmpleado = () => {
 
               <div className="modal-field">
                 <label>Estado</label>
-                <select name="estado" value={nuevoMaterial.estado} onChange={handleChangeMaterial}>
+                <select
+                  name="estado"
+                  value={nuevoMaterial.estado}
+                  onChange={handleChangeMaterial}
+                >
                   <option value="disponible">Disponible</option>
                   <option value="bajo_stock">Bajo stock</option>
                   <option value="agotado">Agotado</option>
                 </select>
               </div>
-
             </div>
             <div className="modal-buttons">
-              <button onClick={agregarMaterial} className="btn-guardar">Guardar</button>
+              <button onClick={agregarMaterial} className="btn-guardar">
+                Guardar
+              </button>
 
-              <button onClick={() => { setMostrarModalMaterial(false); setNuevoMaterial(materialInicial) }} className="btn-cancelar">Cancelar</button>
+              <button
+                onClick={() => {
+                  setMostrarModalMaterial(false);
+                  setNuevoMaterial(materialInicial);
+                }}
+                className="btn-cancelar"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
@@ -1075,15 +1678,23 @@ const DashboardEmpleado = () => {
           <div className="modal">
             <h3>Editar Material — {materialEditar.nombre}</h3>
             <div className="modal-grid">
-
               <div className="modal-field">
                 <label>Nombre</label>
-                <input type="text" name="nombre" value={materialEditar.nombre} onChange={handleChangeEditarMaterial} />
+                <input
+                  type="text"
+                  name="nombre"
+                  value={materialEditar.nombre}
+                  onChange={handleChangeEditarMaterial}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Tipo de material</label>
-                <select name="tipo_material" value={materialEditar.tipo_material} onChange={handleChangeEditarMaterial}>
+                <select
+                  name="tipo_material"
+                  value={materialEditar.tipo_material}
+                  onChange={handleChangeEditarMaterial}
+                >
                   <option value="lona">Lona</option>
                   <option value="lona_translucida">Lona Translúcida</option>
                   <option value="vinil">Vinil</option>
@@ -1095,48 +1706,87 @@ const DashboardEmpleado = () => {
 
               <div className="modal-field">
                 <label>Ancho (cm)</label>
-                <input type="number" name="ancho" value={materialEditar.ancho || ""} onChange={handleChangeEditarMaterial} />
+                <input
+                  type="number"
+                  name="ancho"
+                  value={materialEditar.ancho || ""}
+                  onChange={handleChangeEditarMaterial}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Largo</label>
-                <input type="number" name="largo" value={materialEditar.largo || ""} onChange={handleChangeEditarMaterial} />
+                <input
+                  type="number"
+                  name="largo"
+                  value={materialEditar.largo || ""}
+                  onChange={handleChangeEditarMaterial}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Grosor (mm)</label>
-                <input type="number" name="grosor" value={materialEditar.grosor || ""} onChange={handleChangeEditarMaterial} />
+                <input
+                  type="number"
+                  name="grosor"
+                  value={materialEditar.grosor || ""}
+                  onChange={handleChangeEditarMaterial}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Stock</label>
-                <input type="number" name="stock" min="0" value={materialEditar.stock} onChange={handleChangeEditarMaterial} />
+                <input
+                  type="number"
+                  name="stock"
+                  min="0"
+                  value={materialEditar.stock}
+                  onChange={handleChangeEditarMaterial}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Estado</label>
-                <select name="estado" value={materialEditar.estado} onChange={handleChangeEditarMaterial}>
+                <select
+                  name="estado"
+                  value={materialEditar.estado}
+                  onChange={handleChangeEditarMaterial}
+                >
                   <option value="disponible">Disponible</option>
                   <option value="bajo_stock">Bajo stock</option>
                   <option value="agotado">Agotado</option>
                 </select>
               </div>
 
-              {(materialEditar.tipo_material === "vinil" || materialEditar.tipo_material === "laminacion") && (
+              {(materialEditar.tipo_material === "vinil" ||
+                materialEditar.tipo_material === "laminacion") && (
                 <div className="modal-field">
                   <label>Subtipo</label>
-                  <select name="subtipo" value={materialEditar.subtipo || ""} onChange={handleChangeEditarMaterial}>
+                  <select
+                    name="subtipo"
+                    value={materialEditar.subtipo || ""}
+                    onChange={handleChangeEditarMaterial}
+                  >
                     <option value="">Seleccionar...</option>
                     <option value="brillo">Brillo</option>
                     <option value="mate">Mate</option>
                   </select>
                 </div>
               )}
-
             </div>
             <div className="modal-buttons">
-              <button onClick={guardarEdicionMaterial} className="btn-guardar">Guardar cambios</button>
-              <button onClick={() => { setModalEditarMaterial(false); setMaterialEditar(null) }} className="btn-cancelar">Cancelar</button>
+              <button onClick={guardarEdicionMaterial} className="btn-guardar">
+                Guardar cambios
+              </button>
+              <button
+                onClick={() => {
+                  setModalEditarMaterial(false);
+                  setMaterialEditar(null);
+                }}
+                className="btn-cancelar"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
@@ -1155,7 +1805,7 @@ const DashboardEmpleado = () => {
         transition={Zoom}
       />
     </div>
-  )
-}
+  );
+};
 
-export default DashboardEmpleado
+export default DashboardEmpleado;
