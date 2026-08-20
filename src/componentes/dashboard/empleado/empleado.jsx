@@ -8,9 +8,14 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast, Zoom } from "react-toastify";
 import BlockchainViewer from "../../../blockchain/BlockchainViewer";
 import { registrarBloque } from "../../../blockchain/blockchainService";
+import HomeDashboard from "../inicio/HomeDashboard";
+import PerfilModal from "../perfil/PerfilModal";
+import "../perfil/PerfilModal.css";
+import ChatbotWidget from "../../chatbot/ChatbotWidget"
+
 
 const DashboardEmpleado = () => {
-  const [seccion, setSeccion] = useState("pedidos");
+  const [seccion, setSeccion] = useState("inicio");
   const [pedidos, setPedidos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [mostrarModal, setMostrarModal] = useState(false);
@@ -27,6 +32,8 @@ const DashboardEmpleado = () => {
   const [pedidoVer, setPedidoVer] = useState(null);
   const [procesando, setProcesando] = useState(false);
   const [esLetreroEditar, setEsLetreroEditar] = useState(false);
+  const [mostrarPerfil, setMostrarPerfil] = useState(false);
+  const [perfil, setPerfil] = useState(null);
 
   const materialInicial = {
     nombre: "",
@@ -67,7 +74,19 @@ const DashboardEmpleado = () => {
   useEffect(() => {
     cargarPedidos();
     cargarMateriales();
-    supabase.auth.getUser().then(({ data }) => setUsuario(data?.user));
+    supabase.auth.getUser().then(({ data }) => {
+      setUsuario(data?.user);
+      if (data?.user) {
+        supabase
+          .from("usuarios")
+          .select("nombre, usuario, rol")
+          .eq("id", data.user.id)
+          .single()
+          .then(({ data: p }) => {
+            if (p) setPerfil(p);
+          });
+      }
+    });
   }, []);
 
   // ─── CARGA ───────────────────────────────────────────────────────────
@@ -282,35 +301,36 @@ const DashboardEmpleado = () => {
 
     if (!error) {
       if (!error) {
-  await registrarBloque({
-    entidad: "pedido",
-    entidad_id: pedidoEditar.id,
-    accion: "actualizado",
-    usuario_id: usuario?.id,
-    datosExtra: {
-      cliente_nombre: pedidoEditar.cliente_nombre,
-      estado: pedidoEditar.estado,
-      prioridad: pedidoEditar.prioridad,
+        await registrarBloque({
+          entidad: "pedido",
+          entidad_id: pedidoEditar.id,
+          accion: "actualizado",
+          usuario_id: usuario?.id,
+          datosExtra: {
+            cliente_nombre: pedidoEditar.cliente_nombre,
+            estado: pedidoEditar.estado,
+            prioridad: pedidoEditar.prioridad,
+          },
+        });
+        setModalEditar(false);
+        setPedidoEditar(null);
+        setEsLetreroEditar(false);
+        cargarPedidos();
+        toast.success("Guardado exitosamente", {
+          position: "bottom-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "dark",
+          transition: Zoom,
+        });
+      } else {
+        console.error(error.message);
+      }
     }
-  })
-      setModalEditar(false);
-      setPedidoEditar(null);
-      setEsLetreroEditar(false);
-      cargarPedidos();
-      toast.success("Guardado exitosamente", {
-        position: "bottom-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        theme: "dark",
-        transition: Zoom,
-      });
-    } else {
-      console.error(error.message);
-    }
-  }}
+  };
 
   const eliminarPedido = async (pedido) => {
     const confirmar = window.confirm(
@@ -465,16 +485,16 @@ const DashboardEmpleado = () => {
 
     if (!error) {
       await registrarBloque({
-    entidad: "material",
-    entidad_id: nuevoMaterial.nombre,
-    accion: "creado",
-    usuario_id: usuario?.id,
-    datosExtra: {
-      nombre: nuevoMaterial.nombre,
-      tipo_material: nuevoMaterial.tipo_material,
-      stock: nuevoMaterial.stock,
-    }
-  })
+        entidad: "material",
+        entidad_id: nuevoMaterial.nombre,
+        accion: "creado",
+        usuario_id: usuario?.id,
+        datosExtra: {
+          nombre: nuevoMaterial.nombre,
+          tipo_material: nuevoMaterial.tipo_material,
+          stock: nuevoMaterial.stock,
+        },
+      });
       setMostrarModalMaterial(false);
       setNuevoMaterial(materialInicial);
       cargarMateriales();
@@ -524,17 +544,17 @@ const DashboardEmpleado = () => {
       .eq("id", materialEditar.id);
 
     if (!error) {
-        await registrarBloque({
-    entidad: "material",
-    entidad_id: materialEditar.id,
-    accion: "actualizado",
-    usuario_id: usuario?.id,
-    datosExtra: {
-      nombre: materialEditar.nombre,
-      stock: materialEditar.stock,
-      estado: materialEditar.estado,
-    }
-  })
+      await registrarBloque({
+        entidad: "material",
+        entidad_id: materialEditar.id,
+        accion: "actualizado",
+        usuario_id: usuario?.id,
+        datosExtra: {
+          nombre: materialEditar.nombre,
+          stock: materialEditar.stock,
+          estado: materialEditar.estado,
+        },
+      });
       setModalEditarMaterial(false);
       setMaterialEditar(null);
       toast.success("Guardado exitosamente", {
@@ -553,59 +573,47 @@ const DashboardEmpleado = () => {
     }
   };
 
-  const eliminarMaterial = async (materialId) => {
+  const eliminarMaterial = async (id) => {
     const confirmar = window.confirm(
       "¿Estás seguro de que quieres eliminar este material?",
     );
     if (!confirmar) return;
 
-    const { data: pedidosAsociados, error: checkError } = await supabase
-      .from("pedidos")
+    // Verificar si tiene pedidos asociados
+    const { data: pedidosAsociados } = await supabase
+      .from("pedido_materiales")
       .select("id")
-      .eq("material_id", materialId)
+      .eq("material_id", id)
       .limit(1);
 
-    if (checkError) {
-      console.error(checkError.message);
+    if (pedidosAsociados && pedidosAsociados.length > 0) {
+      // Tiene pedidos vinculados — marcar como agotado en vez de eliminar
+      const { error: errUpdate } = await supabase
+        .from("materiales")
+        .update({ estado: "agotado" })
+        .eq("id", id);
+
+      if (!errUpdate) {
+        cargarMateriales();
+      } else {
+        console.error("Error al marcar agotado:", errUpdate.message);
+        alert("No se pudo actualizar el material.");
+      }
       return;
     }
 
-    if (pedidosAsociados && pedidosAsociados.length > 0) {
-      const { error: updateError } = await supabase
-        .from("materiales")
-        .update({ estado: "agotado" })
-        .eq("id", materialId);
-      if (updateError) {
-        console.error(updateError.message);
-        return;
-      }
-      alert(
-        "Este material tiene pedidos asociados. Se marcó como agotado en lugar de eliminarse.",
-      );
+    // Sin pedidos asociados — eliminar normalmente
+    const { error: errDelete } = await supabase
+      .from("materiales")
+      .delete()
+      .eq("id", id);
+
+    if (!errDelete) {
+      cargarMateriales();
     } else {
-      const { error: deleteError } = await supabase
-        .from("materiales")
-        .delete()
-        .eq("id", materialId);
-      if (deleteError) {
-        console.error(deleteError.message);
-        return;
-      }
+      console.error("Error al eliminar:", errDelete.message);
+      alert("No se pudo eliminar el material.");
     }
-if (!error) {
-  await registrarBloque({
-    entidad: "material",
-    entidad_id: id,
-    accion: "eliminado",
-    usuario_id: usuario?.id,
-    datosExtra: {
-      material_id: id,
-    }
-  })
-  cargarMateriales()
-} else {
-  console.error(error.message)
-}
   };
 
   // ─── RENDER ──────────────────────────────────────────────────────────
@@ -619,6 +627,13 @@ if (!error) {
           <span>Taller</span>
         </div>
         <nav className="sidebar-nav">
+          <button
+            className={`nav-item ${seccion === "inicio" ? "active" : ""}`}
+            onClick={() => setSeccion("inicio")}
+          >
+            Inicio
+          </button>
+
           <button
             className={`nav-item ${seccion === "pedidos" ? "active" : ""}`}
             onClick={() => setSeccion("pedidos")}
@@ -643,6 +658,7 @@ if (!error) {
           >
             Contabilidad
           </button>
+
           <button
             className={`nav-item ${seccion === "blockchain" ? "active" : ""}`}
             onClick={() => setSeccion("blockchain")}
@@ -662,15 +678,17 @@ if (!error) {
       <main className="dashboard-main">
         <header className="dashboard-header">
           <h1>
-            {seccion === "pedidos"
-              ? "Pedidos en Producción"
-              : seccion === "materiales"
-                ? "Materiales"
-                : seccion === "contabilidad"
-                  ? "Contabilidad"
-                  : seccion === "blockchain"
-                    ? "Blockchain"
-                    : "Calculadora"}
+            {seccion === "inicio"
+              ? "Inicio"
+              : seccion === "pedidos"
+                ? "Pedidos en Producción"
+                : seccion === "materiales"
+                  ? "Materiales"
+                  : seccion === "contabilidad"
+                    ? "Contabilidad"
+                      : seccion === "blockchain"
+                        ? "Blockchain"
+                        : "Calculadora"}
           </h1>
           {seccion === "pedidos" && (
             <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>
@@ -685,10 +703,19 @@ if (!error) {
               + Nuevo Material
             </button>
           )}
+          <div
+            className="dashboard-avatar"
+            onClick={() => setMostrarPerfil(true)}
+            title={perfil?.usuario ? `@${perfil.usuario}` : "Perfil"}
+          >
+            {perfil?.usuario ? perfil.usuario.slice(0, 2).toUpperCase() : "??"}
+          </div>
         </header>
 
         <div className="dashboard-content">
-          {/* SECCIÓN PEDIDOS */}
+          {seccion === "inicio" && (
+            <HomeDashboard usuario={usuario} rol="empleado" />
+          )}
           {seccion === "pedidos" && (
             <div className="seccion">
               {cargando ? (
@@ -860,6 +887,7 @@ if (!error) {
           {seccion === "calculadora" && <Calculadora />}
           {seccion === "contabilidad" && <Contabilidad usuario={usuario} />}
           {seccion === "blockchain" && <BlockchainViewer />}
+
         </div>
       </main>
 
@@ -1804,6 +1832,18 @@ if (!error) {
         theme="dark"
         transition={Zoom}
       />
+
+      {mostrarPerfil && (
+        <PerfilModal
+          usuario={usuario}
+          perfil={perfil}
+          onClose={() => setMostrarPerfil(false)}
+          onUsuarioActualizado={(nuevoUsuario) => {
+            setPerfil((prev) => ({ ...prev, usuario: nuevoUsuario }));
+          }}
+        />
+      )}
+      <ChatbotWidget usuario={usuario} rol="empleado" />
     </div>
   );
 };

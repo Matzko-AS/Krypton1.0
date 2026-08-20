@@ -8,9 +8,13 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast, Zoom } from "react-toastify";
 import BlockchainViewer from "../../../blockchain/BlockchainViewer";
 import { registrarBloque } from "../../../blockchain/blockchainService";
+import HomeDashboard from "../inicio/HomeDashboard";
+import PerfilModal from "../perfil/PerfilModal";
+import "../perfil/PerfilModal.css";
+import ChatbotWidget from "../../chatbot/ChatbotWidget"
 
 const DashboardDisenador = () => {
-  const [seccion, setSeccion] = useState("pedidos");
+  const [seccion, setSeccion] = useState("inicio");
   const [pedidos, setPedidos] = useState([]);
   const [disenos, setDisenos] = useState([]);
   const [materiales, setMateriales] = useState([]);
@@ -33,6 +37,9 @@ const DashboardDisenador = () => {
   const [modalVerPedido, setModalVerPedido] = useState(false);
   const [pedidoVer, setPedidoVer] = useState(null);
   const [procesando, setProcesando] = useState(false);
+
+  const [mostrarPerfil, setMostrarPerfil] = useState(false);
+  const [perfil, setPerfil] = useState(null);
 
   const navigate = useNavigate();
 
@@ -62,7 +69,19 @@ const DashboardDisenador = () => {
     cargarPedidos();
     cargarMateriales();
     cargarDisenos();
-    supabase.auth.getUser().then(({ data }) => setUsuario(data?.user));
+    supabase.auth.getUser().then(({ data }) => {
+      setUsuario(data?.user);
+      if (data?.user) {
+        supabase
+          .from("usuarios")
+          .select("nombre, usuario, rol")
+          .eq("id", data.user.id)
+          .single()
+          .then(({ data: p }) => {
+            if (p) setPerfil(p);
+          });
+      }
+    });
   }, []);
 
   // ─── CARGA ──────────────────────────────────────────────────────────
@@ -542,6 +561,12 @@ const DashboardDisenador = () => {
         </div>
         <nav className="sidebar-nav">
           <button
+            className={`nav-item ${seccion === "inicio" ? "active" : ""}`}
+            onClick={() => setSeccion("inicio")}
+          >
+            Inicio
+          </button>
+          <button
             className={`nav-item ${seccion === "pedidos" ? "active" : ""}`}
             onClick={() => setSeccion("pedidos")}
           >
@@ -565,6 +590,7 @@ const DashboardDisenador = () => {
           >
             Contabilidad
           </button>
+
           <button
             className={`nav-item ${seccion === "blockchain" ? "active" : ""}`}
             onClick={() => setSeccion("blockchain")}
@@ -584,15 +610,18 @@ const DashboardDisenador = () => {
       <main className="dashboard-main">
         <header className="dashboard-header">
           <h1>
-            {seccion === "pedidos"
-              ? "Pedidos"
-              : seccion === "disenos"
-                ? "Diseños"
-                : seccion === "contabilidad"
-                  ? "Contabilidad"
-                  : seccion === "blockchain"
-                    ? "Blockchain"
-                    : "Calculadora"}
+            {seccion === "inicio"
+              ? "Inicio"
+              : seccion === "pedidos"
+                ? "Pedidos"
+                : seccion === "disenos"
+                  ? "Diseños"
+                  : seccion === "contabilidad"
+                    ? "Contabilidad"
+
+                      : seccion === "blockchain"
+                        ? "Blockchain"
+                        : "Calculadora"}
           </h1>
           {seccion === "pedidos" && (
             <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>
@@ -607,10 +636,22 @@ const DashboardDisenador = () => {
               + Subir Diseño
             </button>
           )}
+          <div
+            className="dashboard-avatar"
+            onClick={() => setMostrarPerfil(true)}
+            title={perfil?.usuario ? `@${perfil.usuario}` : "Perfil"}
+          >
+            {perfil?.usuario ? perfil.usuario.slice(0, 2).toUpperCase() : "??"}
+          </div>
         </header>
 
         <div className="dashboard-content">
           {/* SECCIÓN PEDIDOS */}
+
+          {seccion === "inicio" && (
+            <HomeDashboard usuario={usuario} rol="diseñador" />
+          )}
+
           {seccion === "pedidos" && (
             <div className="seccion">
               {cargando ? (
@@ -1465,6 +1506,17 @@ const DashboardDisenador = () => {
         theme="dark"
         transition={Zoom}
       />
+      {mostrarPerfil && (
+        <PerfilModal
+          usuario={usuario}
+          perfil={perfil}
+          onClose={() => setMostrarPerfil(false)}
+          onUsuarioActualizado={(nuevoUsuario) => {
+            setPerfil((prev) => ({ ...prev, usuario: nuevoUsuario }));
+          }}
+        />
+      )}
+      <ChatbotWidget usuario={usuario} rol="diseñador" />
     </div>
   );
 };
