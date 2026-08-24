@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
+import { supabase } from "../../../../supabase/supabaseClient"
 import "./Calculadora.css"
 
 // ── Precios base por material ($/m²) ─────────────────────────────────
@@ -32,7 +33,7 @@ const TIPOS_LAPIDA = {
 
 const DESCUENTO_VOLUMEN = 0.10
 
-const Calculadora = () => {
+const Calculadora = ({ usuario }) => {
   // ── Modo: "material" | "letrero" | "lapida" ──
   const [modo, setModo] = useState("material")
 
@@ -55,7 +56,31 @@ const Calculadora = () => {
   const [ancho, setAncho] = useState("")
   const [largo, setLargo] = useState("")
   const [cantidad, setCantidad] = useState(1)
+
+  // ── Historial (Supabase) ──
   const [historial, setHistorial] = useState([])
+  const [cargandoHistorial, setCargandoHistorial] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState("")
+
+  // ─── CARGA DE HISTORIAL DESDE SUPABASE ──────────────────────────────
+
+  const cargarHistorial = async () => {
+    setCargandoHistorial(true)
+    const { data, error } = await supabase
+      .from("calculos")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(15)
+
+    if (!error) setHistorial(data || [])
+    else console.error("Error al cargar historial:", error.message)
+    setCargandoHistorial(false)
+  }
+
+  useEffect(() => {
+    cargarHistorial()
+  }, [])
 
   // ─── HANDLERS MODO MATERIAL ─────────────────────────────────────────
 
@@ -140,10 +165,12 @@ const Calculadora = () => {
     }
   }, [ancho, largo, cantidad, precioM2, precioCara, precioMarco, precioLapida, modo])
 
-  // ─── GUARDAR EN HISTORIAL ───────────────────────────────────────────
+  // ─── GUARDAR EN HISTORIAL (Supabase) ────────────────────────────────
 
-  const guardarCalculo = () => {
+  const guardarCalculo = async () => {
     if (!calculo.listo) return
+    setErrorGuardar("")
+
     let descripcion = ""
     if (modo === "material") {
       descripcion = `${PRECIOS_BASE[tipoMaterial].label}${conLaminado ? " + Laminado" : ""}`
@@ -152,18 +179,42 @@ const Calculadora = () => {
     } else {
       descripcion = `Lápida: ${TIPOS_LAPIDA[tipoLapida].label}`
     }
-    const entrada = {
-      id: Date.now(),
+
+    setGuardando(true)
+    const { error } = await supabase.from("calculos").insert({
+      usuario_id: usuario?.id,
+      modo,
       descripcion,
       ancho: parseFloat(ancho),
       largo: parseFloat(largo),
       cantidad: parseInt(cantidad),
-      area: calculo.areaM2,
+      area_m2: calculo.areaM2,
+      precio_unitario: calculo.precioUnitario,
+      subtotal: calculo.subtotal,
+      con_descuento: calculo.aplicaDescuento,
+      descuento: calculo.descuento,
       total: calculo.total,
-      conDescuento: calculo.aplicaDescuento,
-      hora: new Date().toLocaleTimeString("es-EC", { hour: "2-digit", minute: "2-digit" }),
+    })
+
+    if (error) {
+      setErrorGuardar("Error al guardar: " + error.message)
+    } else {
+      await cargarHistorial()
     }
-    setHistorial((prev) => [entrada, ...prev].slice(0, 10))
+    setGuardando(false)
+  }
+
+  const eliminarDelHistorial = async (id, propietario_id) => {
+    if (propietario_id !== usuario?.id) return
+    const confirmar = window.confirm("¿Eliminar este cálculo del historial?")
+    if (!confirmar) return
+
+    const { error } = await supabase.from("calculos").delete().eq("id", id)
+    if (!error) {
+      setHistorial((prev) => prev.filter((h) => h.id !== id))
+    } else {
+      console.error("Error al eliminar:", error.message)
+    }
   }
 
   const limpiarForm = () => {
@@ -182,7 +233,7 @@ const Calculadora = () => {
   }
 
   const fmt = (n) =>
-    n.toLocaleString("es-EC", { style: "currency", currency: "USD", minimumFractionDigits: 2 })
+    Number(n).toLocaleString("es-EC", { style: "currency", currency: "USD", minimumFractionDigits: 2 })
 
   // ─── RENDER ─────────────────────────────────────────────────────────
 
@@ -448,10 +499,20 @@ const Calculadora = () => {
             )}
           </div>
 
+          {errorGuardar && (
+            <p style={{ fontSize: "12px", color: "#ef4444", margin: "-8px 0 4px" }}>
+              ⚠️ {errorGuardar}
+            </p>
+          )}
+
           {/* BOTONES */}
           <div className="calc-actions">
-            <button className="btn-guardar-calc" onClick={guardarCalculo} disabled={!calculo.listo}>
-              Guardar en historial
+            <button
+              className="btn-guardar-calc"
+              onClick={guardarCalculo}
+              disabled={!calculo.listo || guardando}
+            >
+              {guardando ? "Guardando…" : "Guardar en historial"}
             </button>
             <button className="btn-limpiar-calc" onClick={limpiarForm}>
               Limpiar
@@ -543,15 +604,17 @@ const Calculadora = () => {
             </div>
           </div>
 
-          {/* Historial */}
-          {historial.length > 0 && (
-            <div className="historial-section">
-              <div className="historial-header">
-                <p className="historial-titulo">Historial de cálculos</p>
-                <button className="btn-limpiar-hist" onClick={() => setHistorial([])}>
-                  Limpiar
-                </button>
-              </div>
+          {/* Historial (desde Supabase) */}
+          <div className="historial-section">
+            <div className="historial-header">
+              <p className="historial-titulo">Historial de cálculos</p>
+            </div>
+
+            {cargandoHistorial ? (
+              <p style={{ fontSize: "12px", color: "#475569" }}>Cargando…</p>
+            ) : historial.length === 0 ? (
+              <p style={{ fontSize: "12px", color: "#475569" }}>Aún no hay cálculos guardados.</p>
+            ) : (
               <div className="historial-lista">
                 {historial.map((h) => (
                   <div key={h.id} className="historial-item">
@@ -559,18 +622,34 @@ const Calculadora = () => {
                       <span className="hist-material">{h.descripcion}</span>
                       <span className="hist-dims">
                         {h.ancho}×{h.largo} cm · ×{h.cantidad}
-                        {h.conDescuento && " · desc."}
+                        {h.con_descuento && " · desc."}
                       </span>
                     </div>
-                    <div className="hist-right">
-                      <span className="hist-total">{fmt(h.total)}</span>
-                      <span className="hist-hora">{h.hora}</span>
+                    <div className="hist-right" style={{ flexDirection: "row", alignItems: "center", gap: "8px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                        <span className="hist-total">{fmt(h.total)}</span>
+                        <span className="hist-hora">
+                          {new Date(h.created_at).toLocaleTimeString("es-EC", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      {h.usuario_id === usuario?.id && (
+                        <button
+                          className="btn-limpiar-hist"
+                          title="Eliminar"
+                          onClick={() => eliminarDelHistorial(h.id, h.usuario_id)}
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
         </div>
       </div>

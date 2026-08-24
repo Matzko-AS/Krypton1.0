@@ -824,7 +824,7 @@ const DashboardDisenador = () => {
             </div>
           )}
 
-          {seccion === "calculadora" && <Calculadora />}
+          {seccion === "calculadora" && <Calculadora usuario={usuario} />}
           {seccion === "contabilidad" && <Contabilidad usuario={usuario} />}
           {seccion === "blockchain" && <BlockchainViewer />}
         </div>
