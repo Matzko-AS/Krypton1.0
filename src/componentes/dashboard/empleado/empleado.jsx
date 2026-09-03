@@ -406,12 +406,18 @@ const DashboardEmpleado = () => {
         .eq("id", pedido.id);
       if (errPedido) throw errPedido;
 
-      await supabase.from("historial").insert({
-        pedido_id: pedido.id,
-        accion: "terminado",
-        descripcion:
-          "Pedido terminado por empleado. Archivos de diseño eliminados del bucket.",
-      });
+// 4. Registrar en historial
+const { error: errHistorial } = await supabase.from("historial").insert({
+  entidad: "pedido",
+  entidad_id: pedido.id,
+  accion: "terminado",
+  usuario_id: usuario?.id,
+  datos: JSON.stringify({
+    cliente_nombre: pedido.cliente_nombre,
+    nota: "Pedido terminado por empleado. Archivos de diseño eliminados del bucket.",
+  }),
+})
+if (errHistorial) console.error("Error guardando historial:", errHistorial.message)
       await registrarBloque({
         entidad: "pedido",
         entidad_id: pedido.id,

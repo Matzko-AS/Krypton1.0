@@ -652,9 +652,67 @@ const Calculadora = ({ usuario }) => {
           </div>
 
         </div>
+            
+        {/* ── PANEL DERECHO: PRECIOS ── */}
+        <div className="calc-panel calc-panel-precios">
+
+          <div className="precios-header">
+            <p className="precios-titulo">Precios base</p>
+            <span className="precios-subtitulo">
+              Referencia por m²
+            </span>
+          </div>
+          {/* MATERIALES */}
+          <div className="precios-grupo">
+            <p className="precios-grupo-titulo">Materiales</p>
+
+            {Object.entries(PRECIOS_BASE).map(([key, mat]) => (
+              <div key={key}>
+
+                <div
+                  className={`precio-item ${
+                    modo === "material" &&
+                    tipoMaterial === key &&
+                    !conLaminado
+                      ? "precio-item-active"
+                      : ""
+                  }`}
+                >
+                  <span>{mat.label}</span>
+
+                  <span className="precio-valor">
+                    {fmt(mat.precio)}/m²
+                  </span>
+                </div>
+
+                {mat.laminado && (
+                  <div
+                    className={`precio-item precio-item-sub ${
+                      modo === "material" &&
+                      tipoMaterial === key &&
+                      conLaminado
+                        ? "precio-item-active"
+                        : ""
+                    }`}
+                  >
+                    <span>↳ Con laminado</span>
+
+                    <span className="precio-valor">
+                      {fmt(mat.precioLaminado)}/m²
+                    </span>
+                  </div>
+                )}
+
+              </div>
+            ))}
+
+          </div>
+        </div>
+
       </div>
     </div>
   )
 }
+
 
 export default Calculadora

@@ -391,24 +391,50 @@ const DashboardDisenador = () => {
     setSubiendoArchivo(false);
   };
 
-  const aprobarDiseno = async (diseno) => {
-    await supabase
-      .from("pedidos")
-      .update({ estado: "en_impresion" })
-      .eq("id", diseno.pedido_id);
-    await registrarBloque({
-      entidad: "pedido",
-      entidad_id: pedido.id,
-      accion: "terminado",
-      usuario_id: usuario?.id,
-      datosExtra: {
-        cliente_nombre: pedido.cliente_nombre,
-        cantidad: pedido.cantidad,
+const aprobarDiseno = async (diseno) => {
+  await supabase
+    .from("pedidos")
+    .update({ estado: "en_impresion" })
+    .eq("id", diseno.pedido_id)
+
+  let txHash = null
+  try {
+    const { data, error } = await supabase.functions.invoke("registrar-blockchain", {
+      body: {
+        tipo_operacion: "aprobacion_diseño",
+        datos: {
+          diseno_id: diseno.id,
+          pedido_id: diseno.pedido_id,
+          hash_archivo: diseno.hash_archivo,
+        },
       },
-    });
-    cargarDisenos();
-    cargarPedidos();
-  };
+    })
+    if (error) {
+      console.error("Error registrando en blockchain:", error.message)
+    } else {
+      txHash = data.tx_hash
+      console.log("✅ Registrado en blockchain. Tx hash:", txHash)
+    }
+  } catch (e) {
+    console.error("Error llamando Edge Function blockchain:", e.message)
+  }
+
+  const { error: errHistorial } = await supabase.from("historial").insert({
+    entidad: "diseno",
+    entidad_id: diseno.id,
+    accion: "aprobado",
+    usuario_id: usuario?.id,
+    datos: JSON.stringify({
+      pedido_id: diseno.pedido_id,
+      hash_archivo: diseno.hash_archivo,
+    }),
+    tx_hash_blockchain: txHash,
+  })
+  if (errHistorial) console.error("Error guardando historial:", errHistorial.message)
+
+  cargarDisenos()
+  cargarPedidos()
+}
 
   const rechazarDiseno = async (diseno) => {
     const confirmar = window.confirm(

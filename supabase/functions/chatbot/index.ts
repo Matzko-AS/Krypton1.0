@@ -1,14 +1,3 @@
-// supabase/functions/chatbot/index.ts
-//
-// Edge Function del chatbot de Krypton.
-// Usa Groq API (Llama 3.3 70B) con function calling real contra Supabase.
-//
-// Despliegue:
-//   supabase functions deploy chatbot
-//
-// Requiere el secret GROQ_API_KEY ya guardado (supabase secrets set GROQ_API_KEY=...)
-// SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY están disponibles automáticamente
-// dentro de cualquier Edge Function, no hace falta configurarlos.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.1";
 
@@ -258,7 +247,7 @@ Responde siempre en español, de forma breve y directa.`;
         Authorization: `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages,
         tools: TOOLS,
         tool_choice: "auto",
@@ -291,7 +280,7 @@ Responde siempre en español, de forma breve y directa.`;
           Authorization: `Bearer ${GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           messages: segundaLlamada,
           temperature: 0.3,
         }),
