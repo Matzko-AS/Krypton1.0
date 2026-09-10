@@ -17,19 +17,20 @@
 /* MODO TABS */
 .modo-tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 20px;
+  max-width: 360px;
 }
 
 .modo-tab {
   flex: 1;
   background: #1a1d27;
   border: 1px solid #2a2d3a;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #64748b;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 12px;
+  padding: 8px 10px;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -45,13 +46,19 @@
 /* BODY */
 .calc-body {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 300px;
   gap: 20px;
   align-items: start;
 }
 
+@media (max-width: 1100px) {
+  .calc-body { grid-template-columns: 1fr 1fr; }
+  .calc-panel-precios { grid-column: 1 / -1; }
+}
+
 @media (max-width: 768px) {
   .calc-body { grid-template-columns: 1fr; }
+  .calc-panel-precios { grid-column: auto; }
 }
 
 /* PANELES */
@@ -292,25 +299,28 @@
 .hist-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
 .hist-total { font-size: 14px; font-weight: 700; color: #4f6ef7; }
 .hist-hora { font-size: 11px; color: #475569; }
+
 /* ═══════════════════════════════════════════════════════
    PANEL DE REFERENCIA DE PRECIOS
    ═══════════════════════════════════════════════════════ */
 
 .calc-panel-precios {
   min-width: 0;
+  position: sticky;
+  top: 20px;
 }
 
 .precios-header {
   margin-bottom: 20px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #2a2d3a;
 }
 
 .precios-titulo {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #f1f5f9;
 }
 
 .precios-subtitulo {
@@ -349,7 +359,7 @@
   border-radius: 7px;
 
   font-size: 12px;
-  color: #334155;
+  color: #94a3b8;
 
   transition:
     background-color 0.15s ease,
@@ -363,7 +373,7 @@
 .precio-valor {
   flex-shrink: 0;
   font-weight: 600;
-  color: #0f172a;
+  color: #e2e8f0;
 }
 
 .precio-item-sub {
@@ -376,16 +386,17 @@
 }
 
 .precio-item-sub .precio-valor {
-  color: #475569;
+  color: #94a3b8;
   font-weight: 500;
 }
 
 .precio-item-active {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: rgba(79, 110, 247, 0.12);
+  color: #e2e8f0;
   font-weight: 600;
 }
 
 .precio-item-active .precio-valor {
+  color: #818cf8;
   font-weight: 700;
 }

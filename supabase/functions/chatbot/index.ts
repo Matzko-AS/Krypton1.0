@@ -1,4 +1,3 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.1";
 
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
@@ -111,10 +110,63 @@ const TOOLS = [
       parameters: { type: "object", properties: {} },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "buscar_material",
+      description: "Busca materiales disponibles por nombre o tipo. Úsala SIEMPRE antes de crear_pedido cuando el usuario mencione un material, para mostrarle las opciones exactas y evitar elegir uno incorrecto.",
+      parameters: {
+        type: "object",
+        properties: {
+          termino: {
+            type: "string",
+            description: "Palabra clave del material que el usuario mencionó, ej: 'lona', 'vinil', 'pvc'"
+          }
+        },
+        required: ["termino"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "crear_pedido",
+      description: "Crea un nuevo pedido en el sistema. SOLO llama esta función después de tener: cliente_nombre, cantidad, y (material_id exacto de buscar_material) O (datos de letrero). El pedido quedará pendiente de validación humana, nunca se confirma solo.",
+      parameters: {
+        type: "object",
+        properties: {
+          cliente_nombre: { type: "string" },
+          cliente_contacto: { type: "string", description: "Teléfono o correo, opcional" },
+          cantidad: { type: "integer" },
+          material_id: { type: "string", description: "UUID exacto obtenido de buscar_material. Solo si NO es letrero." },
+          es_letrero: { type: "boolean" },
+          letrero_tipo: { type: "string", enum: ["luminoso", "no_luminoso", "backlight", "acrilico", "otro"] },
+          letrero_alto: { type: "number" },
+          letrero_largo: { type: "number" },
+          fecha_entrega: { type: "string", description: "Formato YYYY-MM-DD" },
+          especificaciones: { type: "string" }
+        },
+        required: ["cliente_nombre", "cantidad"]
+      }
+    }
+  }
 ];
 
-// ── Ejecución real de cada tool contra Supabase ──
-async function ejecutarTool(nombre: string, args: Record<string, unknown>) {
+const TOOLS_PUBLICAS_PERMITIDAS = new Set([
+  "consultar_lista_precios",
+  "calcular_cotizacion",
+  "buscar_material",
+  "crear_pedido",
+]);
+
+function filtrarTools(modo: string | undefined) {
+  if (modo === "cliente_publico") {
+    return TOOLS.filter((t) => TOOLS_PUBLICAS_PERMITIDAS.has(t.function.name));
+  }
+  return TOOLS;
+}
+
+async function ejecutarTool(nombre: string, args: Record<string, unknown>, usuarioId: string | null) {
   switch (nombre) {
     case "consultar_stock": {
       const { data, error } = await supabaseAdmin
@@ -158,7 +210,6 @@ async function ejecutarTool(nombre: string, args: Record<string, unknown>) {
         precioUnitario = lap.precio;
         detalle = lap.label;
       } else if (args.tipo_trabajo === "letrero") {
-        // material_o_tipo esperado como "cara:marco", ej "lona:madera"
         const [claveCara, claveMarco] = String(args.material_o_tipo || "lona:madera").split(":");
         const cara = CARAS_LETRERO[claveCara] ?? CARAS_LETRERO.lona;
         const marco = MARCOS[claveMarco] ?? MARCOS.madera;
@@ -199,6 +250,70 @@ async function ejecutarTool(nombre: string, args: Record<string, unknown>) {
       return { ventas, gastos, neta: ventas - gastos, registros: data.length };
     }
 
+    case "buscar_material": {
+      const { termino } = args as { termino: string };
+      const { data, error } = await supabaseAdmin
+        .from("materiales")
+        .select("id, nombre, subtipo, stock, unidad, estado")
+        .ilike("nombre", `%${termino}%`)
+        .neq("estado", "agotado");
+
+      if (error) return { error: error.message };
+      if (!data || data.length === 0) {
+        return { mensaje: `No encontré materiales que coincidan con "${termino}".` };
+      }
+      return {
+        opciones: data.map((m) => ({
+          id: m.id,
+          descripcion: `${m.nombre}${m.subtipo ? ` (${m.subtipo})` : ""} — Stock: ${m.stock} ${m.unidad}`,
+        })),
+      };
+    }
+
+    case "crear_pedido": {
+      const {
+        cliente_nombre, cliente_contacto, cantidad, material_id,
+        es_letrero, letrero_tipo, letrero_alto, letrero_largo,
+        fecha_entrega, especificaciones,
+      } = args as Record<string, any>;
+
+      if (!cliente_nombre || !cantidad) {
+        return { error: "Faltan datos obligatorios: cliente_nombre y cantidad." };
+      }
+      if (!es_letrero && !material_id) {
+        return { error: "Falta material_id. Usa buscar_material primero." };
+      }
+
+      const { data: pedidoCreado, error } = await supabaseAdmin
+        .from("pedidos")
+        .insert({
+          usuario_id: usuarioId,
+          cliente_nombre,
+          cliente_contacto: cliente_contacto || null,
+          cantidad: parseInt(String(cantidad)),
+          descuento: parseInt(String(cantidad)) > 10,
+          material_id: es_letrero ? null : material_id,
+          letrero_tipo: es_letrero ? letrero_tipo : null,
+          letrero_alto: es_letrero ? letrero_alto : null,
+          letrero_largo: es_letrero ? letrero_largo : null,
+          fecha_entrega: fecha_entrega || null,
+          especificaciones: especificaciones || null,
+          estado: "pendiente",
+          origen: "chatbot",
+          validado: false,
+        })
+        .select()
+        .single();
+
+      if (error) return { error: error.message };
+
+      return {
+        exito: true,
+        mensaje: `Pedido creado con ID ${pedidoCreado.id}. Queda pendiente de validación por el equipo antes de entrar a producción.`,
+        pedido_id: pedidoCreado.id,
+      };
+    }
+
     default:
       return { error: "Tool no reconocida" };
   }
@@ -211,16 +326,24 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { mensaje, rol, usuario_id, historial } = await req.json();
+    const { mensaje, rol, usuario_id, historial, modo, conversacion_id } = await req.json();
 
-    if (!mensaje || !usuario_id) {
+    const esPublico = modo === "cliente_publico";
+
+    if (!mensaje || (!esPublico && !usuario_id) || (esPublico && !conversacion_id)) {
       return new Response(JSON.stringify({ error: "Faltan campos requeridos" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const systemPrompt = `Eres el asistente virtual de Krypton Publicidad, una empresa de publicidad y marketing (impresión de lonas, vinil, letreros, lápidas, etc).
+    const systemPrompt = esPublico
+      ? `Eres el asistente virtual de Krypton Publicidad, empresa de publicidad e impresión (lonas, vinil, letreros, lápidas).
+Hablas con un cliente potencial que llegó por WhatsApp. Puedes: 1) dar precios y cotizar trabajos, 2) tomar su pedido si lo solicita explícitamente.
+Antes de crear un pedido, confirma con el cliente nombre, cantidad y detalles — nunca crees un pedido sin que el cliente lo haya pedido claramente.
+Todo pedido queda pendiente de validación humana; díselo al cliente para que sepa que alguien del equipo lo contactará.
+Responde en español, de forma breve, cálida y profesional.`
+      : `Eres el asistente virtual de Krypton Publicidad, una empresa de publicidad y marketing (impresión de lonas, vinil, letreros, lápidas, etc).
 Hablas con un usuario de rol "${rol}" dentro del sistema interno de gestión.
 Puedes: 1) responder preguntas internas sobre stock y pedidos, 2) ayudar a cotizar trabajos para clientes, 3) responder preguntas generales sobre el negocio.
 Usa las herramientas disponibles cuando la pregunta requiera datos reales (stock, pedidos, precios, contabilidad) en lugar de inventar cifras.
@@ -234,46 +357,22 @@ Responde siempre en español, de forma breve y directa.`;
 
     // Guardar el mensaje del usuario
     await supabaseAdmin.from("chat_mensajes").insert({
-      usuario_id,
+      usuario_id: esPublico ? null : usuario_id,
+      conversacion_id: esPublico ? conversacion_id : null,
       rol: "user",
       contenido: mensaje,
     });
 
-    // Primera llamada a Groq
-    let groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-oss-120b",
-        messages,
-        tools: TOOLS,
-        tool_choice: "auto",
-        temperature: 0.3,
-      }),
-    });
+    // Bucle de tool calling: permite varias rondas encadenadas
+    // (ej: buscar_material -> el modelo ve resultados -> crear_pedido)
+    let conversationMessages = [...messages];
+    let data;
+    let choice;
+    const MAX_ROUNDS = 5;
+    const toolsDisponibles = filtrarTools(modo);
 
-    let data = await groqRes.json();
-    let choice = data.choices?.[0];
-
-    // Si el modelo pidió usar tools, las ejecutamos y volvemos a llamar
-    if (choice?.message?.tool_calls?.length) {
-      const toolMessages = [];
-      for (const toolCall of choice.message.tool_calls) {
-        const args = JSON.parse(toolCall.function.arguments || "{}");
-        const resultado = await ejecutarTool(toolCall.function.name, args);
-        toolMessages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(resultado),
-        });
-      }
-
-      const segundaLlamada = [...messages, choice.message, ...toolMessages];
-
-      groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    for (let round = 0; round < MAX_ROUNDS; round++) {
+      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -281,13 +380,32 @@ Responde siempre en español, de forma breve y directa.`;
         },
         body: JSON.stringify({
           model: "openai/gpt-oss-120b",
-          messages: segundaLlamada,
+          messages: conversationMessages,
+          tools: toolsDisponibles,
+          tool_choice: "auto",
           temperature: 0.3,
         }),
       });
 
       data = await groqRes.json();
       choice = data.choices?.[0];
+
+      if (!choice?.message?.tool_calls?.length) {
+        break;
+      }
+
+      const toolMessages = [];
+      for (const toolCall of choice.message.tool_calls) {
+        const args = JSON.parse(toolCall.function.arguments || "{}");
+        const resultado = await ejecutarTool(toolCall.function.name, args, usuario_id ?? null);
+        toolMessages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(resultado),
+        });
+      }
+
+      conversationMessages = [...conversationMessages, choice.message, ...toolMessages];
     }
 
     const respuestaFinal = choice?.message?.content || "No pude generar una respuesta, intenta de nuevo.";
@@ -295,7 +413,8 @@ Responde siempre en español, de forma breve y directa.`;
 
     // Guardar la respuesta del asistente
     await supabaseAdmin.from("chat_mensajes").insert({
-      usuario_id,
+      usuario_id: esPublico ? null : usuario_id,
+      conversacion_id: esPublico ? conversacion_id : null,
       rol: "assistant",
       contenido: respuestaFinal,
       tool_usada: toolUsada,

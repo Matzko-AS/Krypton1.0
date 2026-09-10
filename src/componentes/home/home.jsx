@@ -31,8 +31,8 @@ const Home = () => {
           <div className="preview-card">
             <div className="preview-icon purple">🔗</div>
             <div>
-              <h4>Trazabilidad Blockchain</h4>
-              <p>Registro inmutable de todas las operaciones</p>
+              <h4>Chatbot Inteligente</h4>
+              <p>Herramienta colaborativa</p>
             </div>
           </div>
         </div>

@@ -6,12 +6,10 @@ import Contabilidad from "../contabilidad/contabilidad";
 import "./diseñador.css";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast, Zoom } from "react-toastify";
-import BlockchainViewer from "../../../blockchain/BlockchainViewer";
-import { registrarBloque } from "../../../blockchain/blockchainService";
 import HomeDashboard from "../inicio/HomeDashboard";
 import PerfilModal from "../perfil/PerfilModal";
 import "../perfil/PerfilModal.css";
-import ChatbotWidget from "../../chatbot/ChatbotWidget"
+import ChatbotWidget from "../../chatbot/ChatbotWidget";
 
 const DashboardDisenador = () => {
   const [seccion, setSeccion] = useState("inicio");
@@ -37,9 +35,13 @@ const DashboardDisenador = () => {
   const [modalVerPedido, setModalVerPedido] = useState(false);
   const [pedidoVer, setPedidoVer] = useState(null);
   const [procesando, setProcesando] = useState(false);
+  const [sidebarColapsado, setSidebarColapsado] = useState(false);
 
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
   const [perfil, setPerfil] = useState(null);
+  const [nombreUsuario, setNombreUsuario] = useState("");
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [mostrarNotif, setMostrarNotif] = useState(false);
 
   const navigate = useNavigate();
 
@@ -69,6 +71,8 @@ const DashboardDisenador = () => {
     cargarPedidos();
     cargarMateriales();
     cargarDisenos();
+    cargarNotificaciones();
+
     supabase.auth.getUser().then(({ data }) => {
       setUsuario(data?.user);
       if (data?.user) {
@@ -80,10 +84,28 @@ const DashboardDisenador = () => {
           .then(({ data: p }) => {
             if (p) setPerfil(p);
           });
+
+        cargarNombreUsuario(data.user.id);
       }
     });
-  }, []);
 
+    // Suscripción realtime: recarga la tabla cuando hay cambios en pedidos
+    const canal = supabase
+      .channel("pedidos-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pedidos" },
+        () => {
+          cargarPedidos();
+          cargarNotificaciones();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, []);
   // ─── CARGA ──────────────────────────────────────────────────────────
 
   const cargarPedidos = async () => {
@@ -124,6 +146,14 @@ const DashboardDisenador = () => {
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
     navigate("/");
+  };
+
+  const abrirDesdeNotificacion = (notif) => {
+    const pedidoCompleto = pedidos.find((p) => p.id === notif.id);
+    if (pedidoCompleto) {
+      abrirVerPedido(pedidoCompleto);
+    }
+    setMostrarNotif(false);
   };
 
   // ─── PEDIDOS ────────────────────────────────────────────────────────
@@ -275,17 +305,6 @@ const DashboardDisenador = () => {
       .eq("id", pedidoEditar.id);
 
     if (!error) {
-      await registrarBloque({
-        entidad: "pedido",
-        entidad_id: pedidoEditar.id,
-        accion: "actualizado",
-        usuario_id: usuario?.id,
-        datosExtra: {
-          cliente_nombre: pedidoEditar.cliente_nombre,
-          estado: pedidoEditar.estado,
-          prioridad: pedidoEditar.prioridad,
-        },
-      });
       setModalEditar(false);
       setPedidoEditar(null);
       setEsLetreroEditar(false);
@@ -326,6 +345,14 @@ const DashboardDisenador = () => {
 
   const subirDiseno = async () => {
     if (!pedidoIdDiseno || !archivoDis) return;
+
+    const pedidoSeleccionado = pedidos.find((p) => p.id === pedidoIdDiseno);
+    if (pedidoSeleccionado && !pedidoSeleccionado.validado) {
+      setErrorSubida(
+        "Este pedido necesita ser validado antes de poder subir un diseño.",
+      );
+      return;
+    }
     setSubiendoArchivo(true);
     setErrorSubida("");
 
@@ -360,16 +387,6 @@ const DashboardDisenador = () => {
         .from("pedidos")
         .update({ estado: "en_diseño" })
         .eq("id", pedidoIdDiseno);
-      await registrarBloque({
-        entidad: "diseno",
-        entidad_id: pedidoIdDiseno,
-        accion: "diseno_subido",
-        usuario_id: userData.user.id,
-        datosExtra: {
-          archivo: archivoDis.name,
-          pedido_id: pedidoIdDiseno,
-        },
-      });
       setMostrarModalDiseno(false);
       setPedidoIdDiseno("");
       setArchivoDis(null);
@@ -391,50 +408,23 @@ const DashboardDisenador = () => {
     setSubiendoArchivo(false);
   };
 
-const aprobarDiseno = async (diseno) => {
-  await supabase
-    .from("pedidos")
-    .update({ estado: "en_impresion" })
-    .eq("id", diseno.pedido_id)
-
-  let txHash = null
-  try {
-    const { data, error } = await supabase.functions.invoke("registrar-blockchain", {
-      body: {
-        tipo_operacion: "aprobacion_diseño",
-        datos: {
-          diseno_id: diseno.id,
-          pedido_id: diseno.pedido_id,
-          hash_archivo: diseno.hash_archivo,
-        },
-      },
-    })
-    if (error) {
-      console.error("Error registrando en blockchain:", error.message)
-    } else {
-      txHash = data.tx_hash
-      console.log("✅ Registrado en blockchain. Tx hash:", txHash)
+  const aprobarDiseno = async (diseno) => {
+    // Buscar el pedido asociado para verificar si está validado
+    const pedidoAsociado = pedidos.find((p) => p.id === diseno.pedido_id);
+    if (pedidoAsociado && !pedidoAsociado.validado) {
+      alert(
+        "Este pedido fue creado por el chatbot y necesita ser validado antes de avanzar a impresión.",
+      );
+      return;
     }
-  } catch (e) {
-    console.error("Error llamando Edge Function blockchain:", e.message)
-  }
 
-  const { error: errHistorial } = await supabase.from("historial").insert({
-    entidad: "diseno",
-    entidad_id: diseno.id,
-    accion: "aprobado",
-    usuario_id: usuario?.id,
-    datos: JSON.stringify({
-      pedido_id: diseno.pedido_id,
-      hash_archivo: diseno.hash_archivo,
-    }),
-    tx_hash_blockchain: txHash,
-  })
-  if (errHistorial) console.error("Error guardando historial:", errHistorial.message)
-
-  cargarDisenos()
-  cargarPedidos()
-}
+    await supabase
+      .from("pedidos")
+      .update({ estado: "en_impresion" })
+      .eq("id", diseno.pedido_id);
+    cargarDisenos();
+    cargarPedidos();
+  };
 
   const rechazarDiseno = async (diseno) => {
     const confirmar = window.confirm(
@@ -446,15 +436,6 @@ const aprobarDiseno = async (diseno) => {
       .update({ estado: "en_diseño" })
       .eq("id", diseno.pedido_id);
 
-    await registrarBloque({
-      entidad: "diseno",
-      entidad_id: diseno.id,
-      accion: "rechazado",
-      usuario_id: usuario?.id,
-      datosExtra: {
-        pedido_id: diseno.pedido_id,
-      },
-    });
     cargarDisenos();
     cargarPedidos();
   };
@@ -484,15 +465,6 @@ const aprobarDiseno = async (diseno) => {
         .eq("id", pedido.id);
       if (error) throw error;
 
-      await registrarBloque({
-        entidad: "pedido",
-        entidad_id: pedido.id,
-        accion: "eliminado",
-        usuario_id: usuario?.id,
-        datosExtra: {
-          cliente_nombre: pedido.cliente_nombre,
-        },
-      });
 
       cargarPedidos();
     } catch (error) {
@@ -530,16 +502,7 @@ const aprobarDiseno = async (diseno) => {
         .eq("id", pedido.id);
       if (errPedido) throw errPedido;
 
-      await registrarBloque({
-        entidad: "pedido",
-        entidad_id: pedido.id,
-        accion: "terminado",
-        usuario_id: usuario?.id,
-        datosExtra: {
-          cliente_nombre: pedido.cliente_nombre,
-          cantidad: pedido.cantidad,
-        },
-      });
+
 
       cargarPedidos();
     } catch (e) {
@@ -553,6 +516,45 @@ const aprobarDiseno = async (diseno) => {
   const abrirVerPedido = (pedido) => {
     setPedidoVer(pedido);
     setModalVerPedido(true);
+  };
+  const validarPedido = async (pedido) => {
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase
+      .from("pedidos")
+      .update({
+        validado: true,
+        validado_por: userData.user.id,
+        validado_at: new Date().toISOString(),
+      })
+      .eq("id", pedido.id);
+    cargarPedidos();
+  };
+  const cargarNotificaciones = async () => {
+    const hoy = new Date();
+    const limite = new Date();
+    limite.setDate(hoy.getDate() + 3);
+
+    const hoyStr = hoy.toISOString().split("T")[0];
+    const limiteStr = limite.toISOString().split("T")[0];
+
+    const { data, error } = await supabase
+      .from("pedidos")
+      .select("id, cliente_nombre, estado, fecha_entrega")
+      .neq("estado", "terminado")
+      .gte("fecha_entrega", hoyStr)
+      .lte("fecha_entrega", limiteStr)
+      .order("fecha_entrega", { ascending: true });
+
+    if (!error) setNotificaciones(data || []);
+  };
+
+  const cargarNombreUsuario = async (userId) => {
+    const { data } = await supabase
+      .from("usuarios")
+      .select("nombre")
+      .eq("id", userId)
+      .single();
+    if (data) setNombreUsuario(data.nombre);
   };
 
   // ─── HELPERS ────────────────────────────────────────────────────────
@@ -574,15 +576,36 @@ const aprobarDiseno = async (diseno) => {
   };
 
   const fmt = (n) => `$${Number(n || 0).toFixed(2)}`;
+  const diasRestantes = (fecha) => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const entrega = new Date(fecha + "T00:00:00");
+    return Math.ceil((entrega - hoy) / (1000 * 60 * 60 * 24));
+  };
 
+  const claseUrgencia = (fecha) => {
+    const dias = diasRestantes(fecha);
+    if (dias <= 0) return "urgente";
+    if (dias === 1) return "proxima";
+    return "normal";
+  };
   // ─── RENDER ─────────────────────────────────────────────────────────
 
   return (
     <div className="dashboard">
       {/* SIDEBAR */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarColapsado ? "colapsado" : ""}`}>
         <div className="sidebar-logo">
-          <h2>KRYPTON</h2>
+          <div className="sidebar-logo-row">
+            <h2>KRYPTON</h2>
+            <button
+              className="btn-colapsar"
+              onClick={() => setSidebarColapsado(!sidebarColapsado)}
+              title={sidebarColapsado ? "Expandir" : "Colapsar"}
+            >
+              {sidebarColapsado ? "»" : "«"}
+            </button>
+          </div>
           <span>Diseño</span>
         </div>
         <nav className="sidebar-nav">
@@ -595,40 +618,51 @@ const aprobarDiseno = async (diseno) => {
           <button
             className={`nav-item ${seccion === "pedidos" ? "active" : ""}`}
             onClick={() => setSeccion("pedidos")}
+            title="Pedidos"
           >
-            Pedidos
+            <span className="nav-icon">📋</span>
+            <span className="nav-text">Pedidos</span>
           </button>
           <button
             className={`nav-item ${seccion === "disenos" ? "active" : ""}`}
             onClick={() => setSeccion("disenos")}
+            title="Diseños"
           >
-            Diseños
+            <span className="nav-icon">🎨</span>
+            <span className="nav-text">Diseños</span>
           </button>
           <button
             className={`nav-item ${seccion === "calculadora" ? "active" : ""}`}
             onClick={() => setSeccion("calculadora")}
+            title="Calculadora"
           >
-            Calculadora
+            <span className="nav-icon">🧮</span>
+            <span className="nav-text">Calculadora</span>
           </button>
           <button
             className={`nav-item ${seccion === "contabilidad" ? "active" : ""}`}
             onClick={() => setSeccion("contabilidad")}
+            title="Contabilidad"
           >
-            Contabilidad
-          </button>
-
-          <button
-            className={`nav-item ${seccion === "blockchain" ? "active" : ""}`}
-            onClick={() => setSeccion("blockchain")}
-          >
-            🔗 Blockchain
+            <span className="nav-icon">💰</span>
+            <span className="nav-text">Contabilidad</span>
           </button>
         </nav>
-        <button className="sidebar-logout" onClick={cambiarsesion}>
-          Cambiar sesión
+        <button
+          className="sidebar-logout"
+          onClick={cambiarsesion}
+          title="Cambiar sesión"
+        >
+          <span className="nav-icon">🔄</span>
+          <span className="nav-text">Cambiar sesión</span>
         </button>
-        <button className="sidebar-logout" onClick={cerrarSesion}>
-          Cerrar sesión
+        <button
+          className="sidebar-logout"
+          onClick={cerrarSesion}
+          title="Cerrar sesión"
+        >
+          <span className="nav-icon">🚪</span>
+          <span className="nav-text">Cerrar sesión</span>
         </button>
       </aside>
 
@@ -644,30 +678,92 @@ const aprobarDiseno = async (diseno) => {
                   ? "Diseños"
                   : seccion === "contabilidad"
                     ? "Contabilidad"
-
-                      : seccion === "blockchain"
-                        ? "Blockchain"
-                        : "Calculadora"}
+                    : "Calculadora"}
           </h1>
-          {seccion === "pedidos" && (
-            <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>
-              + Nuevo Pedido
-            </button>
-          )}
-          {seccion === "disenos" && (
-            <button
-              className="btn-nuevo"
-              onClick={() => setMostrarModalDiseno(true)}
+
+          <div className="header-right">
+            {seccion === "pedidos" && (
+              <button
+                className="btn-nuevo"
+                onClick={() => setMostrarModal(true)}
+              >
+                + Nuevo Pedido
+              </button>
+            )}
+            {seccion === "disenos" && (
+              <button
+                className="btn-nuevo"
+                onClick={() => setMostrarModalDiseno(true)}
+              >
+                + Subir Diseño
+              </button>
+            )}
+
+            <div className="topbar-campana-wrap">
+              <button
+                className="btn-campana"
+                onClick={() => setMostrarNotif(!mostrarNotif)}
+              >
+                🔔
+                {notificaciones.length > 0 && (
+                  <span className="campana-badge">{notificaciones.length}</span>
+                )}
+              </button>
+
+              {mostrarNotif && (
+                <div className="notif-dropdown">
+                  <p className="notif-dropdown-titulo">
+                    Entregas próximas (3 días):
+                  </p>
+                  {notificaciones.length === 0 ? (
+                    <p className="notif-vacio">No hay entregas próximas.</p>
+                  ) : (
+                    notificaciones.map((n) => {
+                      const dias = diasRestantes(n.fecha_entrega);
+                      return (
+                        <div
+                          key={n.id}
+                          className={`notif-item ${claseUrgencia(n.fecha_entrega)}`}
+                          onClick={() => abrirDesdeNotificacion(n)}
+                        >
+                          <div className="notif-info">
+                            <span className="notif-cliente">
+                              {n.cliente_nombre || "—"}
+                            </span>
+                            <span className="notif-fecha">
+                              {new Date(
+                                n.fecha_entrega + "T00:00:00",
+                              ).toLocaleDateString("es-EC", {
+                                weekday: "short",
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </span>
+                          </div>
+                          <span className="notif-dias">
+                            {dias <= 0
+                              ? "Hoy"
+                              : dias === 1
+                                ? "Mañana"
+                                : `${dias}d`}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div
+              className="dashboard-avatar"
+              onClick={() => setMostrarPerfil(true)}
+              title={perfil?.usuario ? `@${perfil.usuario}` : "Perfil"}
             >
-              + Subir Diseño
-            </button>
-          )}
-          <div
-            className="dashboard-avatar"
-            onClick={() => setMostrarPerfil(true)}
-            title={perfil?.usuario ? `@${perfil.usuario}` : "Perfil"}
-          >
-            {perfil?.usuario ? perfil.usuario.slice(0, 2).toUpperCase() : "??"}
+              {perfil?.usuario
+                ? perfil.usuario.slice(0, 2).toUpperCase()
+                : "??"}
+            </div>
           </div>
         </header>
 
@@ -695,10 +791,6 @@ const aprobarDiseno = async (diseno) => {
                         <th>Contacto</th>
                         <th>Estado</th>
                         <th>Prioridad</th>
-                        <th>Cantidad</th>
-                        <th>Descuento</th>
-                        <th>Perfil</th>
-                        <th>Configuración</th>
                         <th>Entrega</th>
                         <th>Acciones</th>
                       </tr>
@@ -715,7 +807,16 @@ const aprobarDiseno = async (diseno) => {
                             >
                               {pedido.estado}
                             </span>
+                            {!pedido.validado && (
+                              <span
+                                className="badge-ia"
+                                title="Creado por chatbot — pendiente de validar"
+                              >
+                                🤖
+                              </span>
+                            )}
                           </td>
+
                           <td>
                             <span
                               className="badge"
@@ -726,10 +827,7 @@ const aprobarDiseno = async (diseno) => {
                               {pedido.prioridad}
                             </span>
                           </td>
-                          <td>{pedido.cantidad}</td>
-                          <td>{pedido.descuento ? "✅ Sí" : "—"}</td>
-                          <td>{pedido.perfil_impresion || "—"}</td>
-                          <td>{pedido.configuracion || "—"}</td>
+
                           <td>{pedido.fecha_entrega || "—"}</td>
                           <td>
                             <div style={{ display: "flex", gap: "6px" }}>
@@ -759,6 +857,14 @@ const aprobarDiseno = async (diseno) => {
                               >
                                 {procesando ? "..." : "Fin"}
                               </button>
+                              {!pedido.validado && (
+                                <button
+                                  className="btn-accion"
+                                  onClick={() => validarPedido(pedido)}
+                                >
+                                  ✓ Validar
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -852,7 +958,6 @@ const aprobarDiseno = async (diseno) => {
 
           {seccion === "calculadora" && <Calculadora usuario={usuario} />}
           {seccion === "contabilidad" && <Contabilidad usuario={usuario} />}
-          {seccion === "blockchain" && <BlockchainViewer />}
         </div>
       </main>
 

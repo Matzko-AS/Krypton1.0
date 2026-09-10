@@ -6,13 +6,10 @@ import Contabilidad from "../contabilidad/contabilidad";
 import "./empleado.css";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast, Zoom } from "react-toastify";
-import BlockchainViewer from "../../../blockchain/BlockchainViewer";
-import { registrarBloque } from "../../../blockchain/blockchainService";
 import HomeDashboard from "../inicio/HomeDashboard";
 import PerfilModal from "../perfil/PerfilModal";
 import "../perfil/PerfilModal.css";
-import ChatbotWidget from "../../chatbot/ChatbotWidget"
-
+import ChatbotWidget from "../../chatbot/ChatbotWidget";
 
 const DashboardEmpleado = () => {
   const [seccion, setSeccion] = useState("inicio");
@@ -34,7 +31,12 @@ const DashboardEmpleado = () => {
   const [esLetreroEditar, setEsLetreroEditar] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
   const [perfil, setPerfil] = useState(null);
+  const [sidebarColapsado, setSidebarColapsado] = useState(false);
+  const [nombreUsuario, setNombreUsuario] = useState("");
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [mostrarNotif, setMostrarNotif] = useState(false);
 
+  
   const materialInicial = {
     nombre: "",
     tipo_material: "",
@@ -74,6 +76,8 @@ const DashboardEmpleado = () => {
   useEffect(() => {
     cargarPedidos();
     cargarMateriales();
+    cargarNotificaciones();
+
     supabase.auth.getUser().then(({ data }) => {
       setUsuario(data?.user);
       if (data?.user) {
@@ -85,8 +89,27 @@ const DashboardEmpleado = () => {
           .then(({ data: p }) => {
             if (p) setPerfil(p);
           });
+
+        cargarNombreUsuario(data.user.id);
       }
     });
+
+    // Suscripción realtime: recarga la tabla cuando hay cambios en pedidos
+    const canal = supabase
+      .channel("pedidos-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pedidos" },
+        () => {
+          cargarPedidos();
+          cargarNotificaciones();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
   }, []);
 
   // ─── CARGA ───────────────────────────────────────────────────────────
@@ -231,17 +254,6 @@ const DashboardEmpleado = () => {
         cantidad: parseInt(nuevoPedido.cantidad),
       });
     }
-    await registrarBloque({
-      entidad: "pedido",
-      entidad_id: pedidoCreado.id,
-      accion: "creado",
-      usuario_id: userData.user.id,
-      datosExtra: {
-        cliente_nombre: nuevoPedido.cliente_nombre,
-        cantidad: nuevoPedido.cantidad,
-        estado: estadoFinal,
-      },
-    });
 
     setMostrarModal(false);
     setNuevoPedido(pedidoInicial);
@@ -301,17 +313,6 @@ const DashboardEmpleado = () => {
 
     if (!error) {
       if (!error) {
-        await registrarBloque({
-          entidad: "pedido",
-          entidad_id: pedidoEditar.id,
-          accion: "actualizado",
-          usuario_id: usuario?.id,
-          datosExtra: {
-            cliente_nombre: pedidoEditar.cliente_nombre,
-            estado: pedidoEditar.estado,
-            prioridad: pedidoEditar.prioridad,
-          },
-        });
         setModalEditar(false);
         setPedidoEditar(null);
         setEsLetreroEditar(false);
@@ -354,15 +355,6 @@ const DashboardEmpleado = () => {
         .delete()
         .eq("id", pedido.id);
       if (error) throw error;
-      await registrarBloque({
-        entidad: "pedido",
-        entidad_id: pedido.id,
-        accion: "eliminado",
-        usuario_id: usuario?.id,
-        datosExtra: {
-          cliente_nombre: pedido.cliente_nombre,
-        },
-      });
       cargarPedidos();
     } catch (e) {
       console.error("Error al eliminar pedido:", e.message);
@@ -373,6 +365,10 @@ const DashboardEmpleado = () => {
   };
 
   const finalizarPedido = async (pedido) => {
+    if (!pedido.validado) {
+      alert("Este pedido no puede finalizarse: aún no ha sido validado.");
+      return;
+    }
     const confirmar = window.confirm(
       `¿Finalizar el pedido de "${pedido.cliente_nombre}"?\n\nEsto eliminará el archivo de diseño del storage y ocultará el pedido de esta vista.`,
     );
@@ -406,28 +402,19 @@ const DashboardEmpleado = () => {
         .eq("id", pedido.id);
       if (errPedido) throw errPedido;
 
-// 4. Registrar en historial
-const { error: errHistorial } = await supabase.from("historial").insert({
-  entidad: "pedido",
-  entidad_id: pedido.id,
-  accion: "terminado",
-  usuario_id: usuario?.id,
-  datos: JSON.stringify({
-    cliente_nombre: pedido.cliente_nombre,
-    nota: "Pedido terminado por empleado. Archivos de diseño eliminados del bucket.",
-  }),
-})
-if (errHistorial) console.error("Error guardando historial:", errHistorial.message)
-      await registrarBloque({
+      // 4. Registrar en historial
+      const { error: errHistorial } = await supabase.from("historial").insert({
         entidad: "pedido",
         entidad_id: pedido.id,
         accion: "terminado",
         usuario_id: usuario?.id,
-        datosExtra: {
+        datos: JSON.stringify({
           cliente_nombre: pedido.cliente_nombre,
-          cantidad: pedido.cantidad,
-        },
+          nota: "Pedido terminado por empleado. Archivos de diseño eliminados del bucket.",
+        }),
       });
+      if (errHistorial)
+        console.error("Error guardando historial:", errHistorial.message);
       cargarPedidos();
     } catch (e) {
       console.error("Error al finalizar pedido:", e.message);
@@ -449,6 +436,38 @@ if (errHistorial) console.error("Error guardando historial:", errHistorial.messa
       .single();
     if (data) setStockDisponible(data);
   };
+
+
+
+    const cargarNotificaciones = async () => {
+      const hoy = new Date();
+      const limite = new Date();
+      limite.setDate(hoy.getDate() + 3);
+  
+      const hoyStr = hoy.toISOString().split("T")[0];
+      const limiteStr = limite.toISOString().split("T")[0];
+  
+      const { data, error } = await supabase
+        .from("pedidos")
+        .select("id, cliente_nombre, estado, fecha_entrega")
+        .neq("estado", "terminado")
+        .gte("fecha_entrega", hoyStr)
+        .lte("fecha_entrega", limiteStr)
+        .order("fecha_entrega", { ascending: true });
+  
+      if (!error) setNotificaciones(data || []);
+    };
+  
+    const cargarNombreUsuario = async (userId) => {
+      const { data } = await supabase
+        .from("usuarios")
+        .select("nombre")
+        .eq("id", userId)
+        .single();
+      if (data) setNombreUsuario(data.nombre);
+    };
+  
+  
 
   // ─── MATERIALES ──────────────────────────────────────────────────────
 
@@ -490,17 +509,6 @@ if (errHistorial) console.error("Error guardando historial:", errHistorial.messa
     });
 
     if (!error) {
-      await registrarBloque({
-        entidad: "material",
-        entidad_id: nuevoMaterial.nombre,
-        accion: "creado",
-        usuario_id: usuario?.id,
-        datosExtra: {
-          nombre: nuevoMaterial.nombre,
-          tipo_material: nuevoMaterial.tipo_material,
-          stock: nuevoMaterial.stock,
-        },
-      });
       setMostrarModalMaterial(false);
       setNuevoMaterial(materialInicial);
       cargarMateriales();
@@ -550,17 +558,6 @@ if (errHistorial) console.error("Error guardando historial:", errHistorial.messa
       .eq("id", materialEditar.id);
 
     if (!error) {
-      await registrarBloque({
-        entidad: "material",
-        entidad_id: materialEditar.id,
-        accion: "actualizado",
-        usuario_id: usuario?.id,
-        datosExtra: {
-          nombre: materialEditar.nombre,
-          stock: materialEditar.stock,
-          estado: materialEditar.estado,
-        },
-      });
       setModalEditarMaterial(false);
       setMaterialEditar(null);
       toast.success("Guardado exitosamente", {
@@ -621,15 +618,67 @@ if (errHistorial) console.error("Error guardando historial:", errHistorial.messa
       alert("No se pudo eliminar el material.");
     }
   };
+  const validarPedido = async (pedido) => {
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase
+      .from("pedidos")
+      .update({
+        validado: true,
+        validado_por: userData.user.id,
+        validado_at: new Date().toISOString(),
+      })
+      .eq("id", pedido.id);
+    cargarPedidos();
+  };
+const diasRestantes = (fecha) => {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const entrega = new Date(fecha + "T00:00:00");
+  return Math.ceil((entrega - hoy) / (1000 * 60 * 60 * 24));
+};
 
+const claseUrgencia = (fecha) => {
+  const dias = diasRestantes(fecha);
+  if (dias <= 0) return "urgente";
+  if (dias === 1) return "proxima";
+  return "normal";
+};
+
+  const abrirVerPedido = (pedido) => {
+    setPedidoVer(pedido);
+    setModalVerPedido(true);
+  };
+
+const abrirDesdeNotificacion = async (notif) => {
+  setMostrarNotif(false);
+  const { data, error } = await supabase
+    .from("pedidos")
+    .select("*, disenos(*)")
+    .eq("id", notif.id)
+    .single();
+
+  if (!error && data) {
+    setPedidoVer(data);
+    setModalVerPedido(true);
+  }
+};
   // ─── RENDER ──────────────────────────────────────────────────────────
 
   return (
     <div className="dashboard">
       {/* SIDEBAR */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarColapsado ? "colapsado" : ""}`}>
         <div className="sidebar-logo">
-          <h2>KRYPTON</h2>
+          <div className="sidebar-logo-row">
+            <h2>KRYPTON</h2>
+            <button
+              className="btn-colapsar"
+              onClick={() => setSidebarColapsado(!sidebarColapsado)}
+              title={sidebarColapsado ? "Expandir" : "Colapsar"}
+            >
+              {sidebarColapsado ? "»" : "«"}
+            </button>
+          </div>
           <span>Taller</span>
         </div>
         <nav className="sidebar-nav">
@@ -639,44 +688,54 @@ if (errHistorial) console.error("Error guardando historial:", errHistorial.messa
           >
             Inicio
           </button>
-
           <button
             className={`nav-item ${seccion === "pedidos" ? "active" : ""}`}
             onClick={() => setSeccion("pedidos")}
+            title="Pedidos"
           >
-            Pedidos
+            <span className="nav-icon">📋</span>
+            <span className="nav-text">Pedidos</span>
           </button>
           <button
             className={`nav-item ${seccion === "materiales" ? "active" : ""}`}
             onClick={() => setSeccion("materiales")}
+            title="Materiales"
           >
-            Materiales
+            <span className="nav-icon">📦</span>
+            <span className="nav-text">Materiales</span>
           </button>
           <button
             className={`nav-item ${seccion === "calculadora" ? "active" : ""}`}
             onClick={() => setSeccion("calculadora")}
+            title="Calculadora"
           >
-            Calculadora
+            <span className="nav-icon">🧮</span>
+            <span className="nav-text">Calculadora</span>
           </button>
           <button
             className={`nav-item ${seccion === "contabilidad" ? "active" : ""}`}
             onClick={() => setSeccion("contabilidad")}
+            title="Contabilidad"
           >
-            Contabilidad
-          </button>
-
-          <button
-            className={`nav-item ${seccion === "blockchain" ? "active" : ""}`}
-            onClick={() => setSeccion("blockchain")}
-          >
-            🔗 Blockchain
+            <span className="nav-icon">💰</span>
+            <span className="nav-text">Contabilidad</span>
           </button>
         </nav>
-        <button className="sidebar-logout" onClick={cambiarsesion}>
-          Cambiar sesión
+        <button
+          className="sidebar-logout"
+          onClick={cambiarsesion}
+          title="Cambiar sesión"
+        >
+          <span className="nav-icon">🔄</span>
+          <span className="nav-text">Cambiar sesión</span>
         </button>
-        <button className="sidebar-logout" onClick={cerrarSesion}>
-          Cerrar sesión
+        <button
+          className="sidebar-logout"
+          onClick={cerrarSesion}
+          title="Cerrar sesión"
+        >
+          <span className="nav-icon">🚪</span>
+          <span className="nav-text">Cerrar sesión</span>
         </button>
       </aside>
 
@@ -692,29 +751,91 @@ if (errHistorial) console.error("Error guardando historial:", errHistorial.messa
                   ? "Materiales"
                   : seccion === "contabilidad"
                     ? "Contabilidad"
-                      : seccion === "blockchain"
-                        ? "Blockchain"
-                        : "Calculadora"}
+                    : "Calculadora"}
           </h1>
-          {seccion === "pedidos" && (
-            <button className="btn-nuevo" onClick={() => setMostrarModal(true)}>
-              + Nuevo Pedido
-            </button>
-          )}
-          {seccion === "materiales" && (
-            <button
-              className="btn-nuevo"
-              onClick={() => setMostrarModalMaterial(true)}
+          <div className="header-right">
+            {seccion === "pedidos" && (
+              <button
+                className="btn-nuevo"
+                onClick={() => setMostrarModal(true)}
+              >
+                + Nuevo Pedido
+              </button>
+            )}
+            {seccion === "materiales" && (
+              <button
+                className="btn-nuevo"
+                onClick={() => setMostrarModalMaterial(true)}
+              >
+                + Nuevo Material
+              </button>
+            )}
+
+            <div className="topbar-campana-wrap">
+              <button
+                className="btn-campana"
+                onClick={() => setMostrarNotif(!mostrarNotif)}
+              >
+                🔔
+                {notificaciones.length > 0 && (
+                  <span className="campana-badge">{notificaciones.length}</span>
+                )}
+              </button>
+
+              {mostrarNotif && (
+                <div className="notif-dropdown">
+                  <p className="notif-dropdown-titulo">
+                    Entregas próximas (3 días)
+                  </p>
+                  {notificaciones.length === 0 ? (
+                    <p className="notif-vacio">No hay entregas próximas.</p>
+                  ) :  (
+                    notificaciones.map((n) => {
+                      const dias = diasRestantes(n.fecha_entrega);
+                      return (
+                        <div
+                          key={n.id}
+                          className={`notif-item ${claseUrgencia(n.fecha_entrega)}`}
+                          onClick={() => abrirDesdeNotificacion(n)}
+                        >
+                          <div className="notif-info">
+                            <span className="notif-cliente">
+                              {n.cliente_nombre || "—"}
+                            </span>
+                            <span className="notif-fecha">
+                              {new Date(
+                                n.fecha_entrega + "T00:00:00",
+                              ).toLocaleDateString("es-EC", {
+                                weekday: "short",
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </span>
+                          </div>
+                          <span className="notif-dias">
+                            {dias <= 0
+                              ? "Hoy"
+                              : dias === 1
+                                ? "Mañana"
+                                : `${dias}d`}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div
+              className="dashboard-avatar"
+              onClick={() => setMostrarPerfil(true)}
+              title={perfil?.usuario ? `@${perfil.usuario}` : "Perfil"}
             >
-              + Nuevo Material
-            </button>
-          )}
-          <div
-            className="dashboard-avatar"
-            onClick={() => setMostrarPerfil(true)}
-            title={perfil?.usuario ? `@${perfil.usuario}` : "Perfil"}
-          >
-            {perfil?.usuario ? perfil.usuario.slice(0, 2).toUpperCase() : "??"}
+              {perfil?.usuario
+                ? perfil.usuario.slice(0, 2).toUpperCase()
+                : "??"}
+            </div>
           </div>
         </header>
 
@@ -755,7 +876,16 @@ if (errHistorial) console.error("Error guardando historial:", errHistorial.messa
                             >
                               {pedido.estado}
                             </span>
+                            {!pedido.validado && (
+                              <span
+                                className="badge-ia"
+                                title="Creado por chatbot — pendiente de validar"
+                              >
+                                🤖
+                              </span>
+                            )}
                           </td>
+
                           <td>
                             <span
                               className="badge"
@@ -806,6 +936,14 @@ if (errHistorial) console.error("Error guardando historial:", errHistorial.messa
                               >
                                 ✓ Finalizar
                               </button>
+                              {!pedido.validado && (
+                                <button
+                                  className="btn-accion"
+                                  onClick={() => validarPedido(pedido)}
+                                >
+                                  ✓ Validar
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -892,8 +1030,6 @@ if (errHistorial) console.error("Error guardando historial:", errHistorial.messa
 
           {seccion === "calculadora" && <Calculadora usuario={usuario} />}
           {seccion === "contabilidad" && <Contabilidad usuario={usuario} />}
-          {seccion === "blockchain" && <BlockchainViewer />}
-
         </div>
       </main>
 

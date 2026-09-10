@@ -302,3 +302,232 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+.badge-ia {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid #f59e0b;
+  border-radius: 50%;
+  margin-left: 4px;
+  cursor: help;
+}
+
+
+/* ── SIDEBAR COLAPSABLE ── */
+.sidebar {
+  transition: width 0.2s ease;
+  width: 220px;
+}
+
+.sidebar.colapsado {
+  width: 64px;
+}
+
+.sidebar-logo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar.colapsado .sidebar-logo-row {
+  justify-content: center;
+}
+
+.sidebar.colapsado .sidebar-logo h2,
+.sidebar.colapsado .sidebar-logo > span {
+  display: none;
+}
+
+.btn-colapsar {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.6);
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+}
+.btn-colapsar:hover { border-color: #4f6ef7; color: #4f6ef7; }
+
+.nav-item,
+.sidebar-logout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-icon {
+  font-size: 16px;
+  width: 20px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.sidebar.colapsado .nav-text {
+  display: none;
+}
+
+.sidebar.colapsado .nav-item,
+.sidebar.colapsado .sidebar-logout {
+  justify-content: center;
+  padding: 12px 0;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 32px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.topbar-nombre {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* asegúrate de que el dropdown se posicione respecto a la campana, no al header */
+.topbar-campana-wrap {
+  position: relative;
+}
+
+.btn-campana {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  font-size: 18px;
+  cursor: pointer;
+  position: relative;
+  padding: 6px;
+}
+
+.campana-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  min-width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+.notif-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  width: 260px;
+  padding: 12px;
+  z-index: 50;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+}
+
+.notif-item {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.notif-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+.notif-dropdown-titulo {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 10px;
+  padding: 0 4px;
+}
+
+.notif-item {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  background: rgba(255,255,255,0.03);
+  border-left: 3px solid #4f6ef7;
+  transition: background 0.15s, transform 0.1s;
+}
+.notif-item:last-child { margin-bottom: 0; }
+.notif-item:hover {
+  background: rgba(255,255,255,0.07);
+  transform: translateX(2px);
+}
+
+.notif-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notif-cliente {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.notif-fecha {
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  text-transform: capitalize;
+}
+
+.notif-dias {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Estados de urgencia */
+.notif-item.normal { border-left-color: #4f6ef7; }
+.notif-item.normal .notif-dias {
+  background: rgba(79,110,247,0.15);
+  color: #4f6ef7;
+}
+
+.notif-item.proxima { border-left-color: #f59e0b; }
+.notif-item.proxima .notif-dias {
+  background: rgba(245,158,11,0.15);
+  color: #f59e0b;
+}
+
+.notif-item.urgente { border-left-color: #ef4444; }
+.notif-item.urgente .notif-dias {
+  background: rgba(239,68,68,0.15);
+  color: #ef4444;
+}
