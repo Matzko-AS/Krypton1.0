@@ -707,6 +707,62 @@ const Calculadora = ({ usuario }) => {
             ))}
 
           </div>
+                    {/* LETRERO — CARAS */}
+          <div className="precios-grupo">
+            <p className="precios-grupo-titulo">Letrero — Cara</p>
+
+            {Object.entries(CARAS_LETRERO).map(([key, cara]) => (
+              <div
+                key={key}
+                className={`precio-item ${
+                  modo === "letrero" && tipoCaraLetrero === key
+                    ? "precio-item-active"
+                    : ""
+                }`}
+              >
+                <span>{cara.label}</span>
+                <span className="precio-valor">{fmt(cara.precio)}/m²</span>
+              </div>
+            ))}
+          </div>
+
+          {/* LETRERO — MARCOS */}
+          <div className="precios-grupo">
+            <p className="precios-grupo-titulo">Letrero — Marco</p>
+
+            {Object.entries(MARCOS).map(([key, marco]) => (
+              <div
+                key={key}
+                className={`precio-item ${
+                  modo === "letrero" && tipoMarco === key
+                    ? "precio-item-active"
+                    : ""
+                }`}
+              >
+                <span>{marco.label}</span>
+                <span className="precio-valor">{fmt(marco.precio)}/m²</span>
+              </div>
+            ))}
+          </div>
+
+          {/* LÁPIDAS */}
+          <div className="precios-grupo">
+            <p className="precios-grupo-titulo">Lápidas</p>
+
+            {Object.entries(TIPOS_LAPIDA).map(([key, lapida]) => (
+              <div
+                key={key}
+                className={`precio-item ${
+                  modo === "lapida" && tipoLapida === key
+                    ? "precio-item-active"
+                    : ""
+                }`}
+              >
+                <span>{lapida.label}</span>
+                <span className="precio-valor">{fmt(lapida.precio)}/m²</span>
+              </div>
+            ))}
+          </div>
         </div>
 
       </div>

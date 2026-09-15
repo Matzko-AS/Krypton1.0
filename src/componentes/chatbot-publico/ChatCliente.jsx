@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react"
 import { supabase } from "../../supabase/supabaseClient"
 import "./ChatCliente.css"
 
+const WHATSAPP_NUMERO = "593997165947"
+const WHATSAPP_MENSAJE = "Hola, vengo del chat de Kryptón y quiero hablar con un asesor."
+const WHATSAPP_LINK = `https://wa.me/${593997165947}?text=${encodeURIComponent(WHATSAPP_MENSAJE)}`
+
 const ChatCliente = () => {
   const [mensajes, setMensajes] = useState([])
   const [input, setInput] = useState("")
@@ -32,48 +36,48 @@ const ChatCliente = () => {
   }, [mensajes])
 
   const enviarMensaje = async () => {
-  if (!input.trim() || enviando) return
+    if (!input.trim() || enviando) return
 
-  const mensajeUsuario = { rol: "usuario", contenido: input.trim() }
-  setMensajes((prev) => [...prev, mensajeUsuario])
-  setInput("")
-  setEnviando(true)
+    const mensajeUsuario = { rol: "usuario", contenido: input.trim() }
+    setMensajes((prev) => [...prev, mensajeUsuario])
+    setInput("")
+    setEnviando(true)
 
-  try {
-    // Convertir el historial local (rol/contenido) al formato que espera Groq (role/content)
-    const historialParaGroq = mensajes.map((m) => ({
-      role: m.rol === "usuario" ? "user" : "assistant",
-      content: m.contenido,
-    }))
+    try {
+      // Convertir el historial local (rol/contenido) al formato que espera Groq (role/content)
+      const historialParaGroq = mensajes.map((m) => ({
+        role: m.rol === "usuario" ? "user" : "assistant",
+        content: m.contenido,
+      }))
 
-    const { data, error } = await supabase.functions.invoke("chatbot", {
-      body: {
-        mensaje: mensajeUsuario.contenido,
-        conversacion_id: conversacionId,
-        modo: "cliente_publico",
-        historial: historialParaGroq,
-      },
-    })
+      const { data, error } = await supabase.functions.invoke("chatbot", {
+        body: {
+          mensaje: mensajeUsuario.contenido,
+          conversacion_id: conversacionId,
+          modo: "cliente_publico",
+          historial: historialParaGroq,
+        },
+      })
 
-    if (error) throw error
+      if (error) throw error
 
-    setMensajes((prev) => [
-      ...prev,
-      { rol: "asistente", contenido: data.respuesta },
-    ])
-  } catch (e) {
-    console.error("Error chatbot:", e.message)
-    setMensajes((prev) => [
-      ...prev,
-      {
-        rol: "asistente",
-        contenido: "Disculpa, tuve un problema para responder. ¿Puedes intentar de nuevo?",
-      },
-    ])
-  } finally {
-    setEnviando(false)
+      setMensajes((prev) => [
+        ...prev,
+        { rol: "asistente", contenido: data.respuesta },
+      ])
+    } catch (e) {
+      console.error("Error chatbot:", e.message)
+      setMensajes((prev) => [
+        ...prev,
+        {
+          rol: "asistente",
+          contenido: "Disculpa, tuve un problema para responder. ¿Puedes intentar de nuevo?",
+        },
+      ])
+    } finally {
+      setEnviando(false)
+    }
   }
-}
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -89,6 +93,14 @@ const ChatCliente = () => {
           <h1>KRYPTON</h1>
           <span>Asistente virtual</span>
         </div>
+        <a
+          href={WHATSAPP_LINK}
+          target="_blank"
+          rel="noreferrer"
+          className="chat-cliente-whatsapp"
+        >
+          💬 Hablar con un asesor
+        </a>
       </header>
 
       <div className="chat-cliente-mensajes">

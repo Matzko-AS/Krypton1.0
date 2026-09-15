@@ -171,3 +171,19 @@
     box-shadow: 0 25px 60px rgba(0,0,0,0.5);
   }
 }
+
+.chat-cliente-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #25D366;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 20px;
+  text-decoration: none;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+.chat-cliente-whatsapp:hover { opacity: 0.85; }

@@ -533,3 +533,91 @@
   transition: 0.2s;
 }
 .btn-cancelar:hover { background: rgba(255,80,80,.1); color: #ff6b6b; border-color: rgba(255,80,80,.3); }
+
+
+/* ── CALCULADORA EMBEBIDA ────────────────────────────────────────── */
+.cont-calc-toggle {
+  width: 100%;
+  background: #0f1623;
+  border: 1px dashed #4a5568;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.18s;
+  margin-bottom: 10px;
+}
+.cont-calc-toggle:hover { border-color: #6366f1; color: #e2e8f0; }
+
+.cont-calc-panel {
+  background: #141b2b;
+  border: 1px solid #2d3748;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cont-calc-tabs { display: flex; gap: 6px; }
+.cont-calc-tab {
+  flex: 1;
+  background: #0f1623;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 7px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cont-calc-tab:hover { border-color: #6366f1; color: #e2e8f0; }
+.cont-calc-tab.active { background: #1e2a6e; border-color: #6366f1; color: #fff; }
+
+.cont-calc-row { display: flex; gap: 8px; }
+.cont-calc-row-2 > * { flex: 1; }
+.cont-calc-row .cont-input { margin: 0; }
+
+.cont-calc-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.cont-calc-descuento {
+  font-size: 0.75rem;
+  color: #34d399;
+}
+
+.cont-calc-preview {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #0f1623;
+  border-radius: 8px;
+  border: 1px solid #2d3748;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+.cont-calc-preview strong { font-size: 1.05rem; color: #6366f1; }
+
+.btn-usar-calculo {
+  background: #6366f1;
+  border: none;
+  color: #fff;
+  padding: 9px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.btn-usar-calculo:hover:not(:disabled) { background: #4f46e5; }
+.btn-usar-calculo:disabled { opacity: 0.45; cursor: not-allowed; }
