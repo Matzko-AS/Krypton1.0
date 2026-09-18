@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../supabase/supabaseClient";
 import { useNavigate } from "react-router-dom";
-import Calculadora from "../diseñador/calculadora/Calculadora";
+import Calculadora from "../diseñador/calculadora/calculadora";
 import Contabilidad from "../contabilidad/contabilidad";
 import "./empleado.css";
 import "react-toastify/dist/ReactToastify.css";
