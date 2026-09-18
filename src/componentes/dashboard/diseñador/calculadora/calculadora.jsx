@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { supabase } from "../../../../supabase/supabaseClient"
-import ".calculadora.css"
+import "./calculadora.css"
 
 // ── Precios base por material ($/m²) ─────────────────────────────────
 const PRECIOS_BASE = {
