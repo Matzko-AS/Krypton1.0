@@ -11,6 +11,9 @@ import PerfilModal from "../perfil/PerfilModal";
 import "../perfil/PerfilModal.css";
 import ChatbotWidget from "../../chatbot/ChatbotWidget";
 
+const validarTelefono = (valor) =>
+  /^[0-9+\-\s]{7,15}$/.test((valor || "").trim());
+
 const DashboardEmpleado = () => {
   const [seccion, setSeccion] = useState("inicio");
   const [pedidos, setPedidos] = useState([]);
@@ -36,7 +39,6 @@ const DashboardEmpleado = () => {
   const [notificaciones, setNotificaciones] = useState([]);
   const [mostrarNotif, setMostrarNotif] = useState(false);
 
-  
   const materialInicial = {
     nombre: "",
     tipo_material: "",
@@ -204,6 +206,13 @@ const DashboardEmpleado = () => {
   const agregarPedido = async () => {
     if (!nuevoPedido.cliente_nombre) return;
 
+    if (!validarTelefono(nuevoPedido.cliente_contacto)) {
+      alert(
+        "El número de teléfono del cliente es obligatorio y debe ser válido (7 a 15 dígitos).",
+      );
+      return;
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const estadoFinal =
       stockDisponible && stockDisponible.stock > 0
@@ -215,7 +224,7 @@ const DashboardEmpleado = () => {
       .insert({
         usuario_id: userData.user.id,
         cliente_nombre: nuevoPedido.cliente_nombre,
-        cliente_contacto: nuevoPedido.cliente_contacto,
+        cliente_contacto: nuevoPedido.cliente_contacto.trim(),
         cantidad: parseInt(nuevoPedido.cantidad),
         descuento: nuevoPedido.descuento,
         prioridad: nuevoPedido.prioridad,
@@ -283,6 +292,13 @@ const DashboardEmpleado = () => {
   };
 
   const guardarEdicion = async () => {
+    if (!validarTelefono(pedidoEditar.cliente_contacto)) {
+      alert(
+        "El número de teléfono del cliente es obligatorio y debe ser válido (7 a 15 dígitos).",
+      );
+      return;
+    }
+
     const { error } = await supabase
       .from("pedidos")
       .update({
@@ -437,37 +453,33 @@ const DashboardEmpleado = () => {
     if (data) setStockDisponible(data);
   };
 
+  const cargarNotificaciones = async () => {
+    const hoy = new Date();
+    const limite = new Date();
+    limite.setDate(hoy.getDate() + 3);
 
+    const hoyStr = hoy.toISOString().split("T")[0];
+    const limiteStr = limite.toISOString().split("T")[0];
 
-    const cargarNotificaciones = async () => {
-      const hoy = new Date();
-      const limite = new Date();
-      limite.setDate(hoy.getDate() + 3);
-  
-      const hoyStr = hoy.toISOString().split("T")[0];
-      const limiteStr = limite.toISOString().split("T")[0];
-  
-      const { data, error } = await supabase
-        .from("pedidos")
-        .select("id, cliente_nombre, estado, fecha_entrega")
-        .neq("estado", "terminado")
-        .gte("fecha_entrega", hoyStr)
-        .lte("fecha_entrega", limiteStr)
-        .order("fecha_entrega", { ascending: true });
-  
-      if (!error) setNotificaciones(data || []);
-    };
-  
-    const cargarNombreUsuario = async (userId) => {
-      const { data } = await supabase
-        .from("usuarios")
-        .select("nombre")
-        .eq("id", userId)
-        .single();
-      if (data) setNombreUsuario(data.nombre);
-    };
-  
-  
+    const { data, error } = await supabase
+      .from("pedidos")
+      .select("id, cliente_nombre, estado, fecha_entrega")
+      .neq("estado", "terminado")
+      .gte("fecha_entrega", hoyStr)
+      .lte("fecha_entrega", limiteStr)
+      .order("fecha_entrega", { ascending: true });
+
+    if (!error) setNotificaciones(data || []);
+  };
+
+  const cargarNombreUsuario = async (userId) => {
+    const { data } = await supabase
+      .from("usuarios")
+      .select("nombre")
+      .eq("id", userId)
+      .single();
+    if (data) setNombreUsuario(data.nombre);
+  };
 
   // ─── MATERIALES ──────────────────────────────────────────────────────
 
@@ -630,38 +642,38 @@ const DashboardEmpleado = () => {
       .eq("id", pedido.id);
     cargarPedidos();
   };
-const diasRestantes = (fecha) => {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const entrega = new Date(fecha + "T00:00:00");
-  return Math.ceil((entrega - hoy) / (1000 * 60 * 60 * 24));
-};
+  const diasRestantes = (fecha) => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const entrega = new Date(fecha + "T00:00:00");
+    return Math.ceil((entrega - hoy) / (1000 * 60 * 60 * 24));
+  };
 
-const claseUrgencia = (fecha) => {
-  const dias = diasRestantes(fecha);
-  if (dias <= 0) return "urgente";
-  if (dias === 1) return "proxima";
-  return "normal";
-};
+  const claseUrgencia = (fecha) => {
+    const dias = diasRestantes(fecha);
+    if (dias <= 0) return "urgente";
+    if (dias === 1) return "proxima";
+    return "normal";
+  };
 
   const abrirVerPedido = (pedido) => {
     setPedidoVer(pedido);
     setModalVerPedido(true);
   };
 
-const abrirDesdeNotificacion = async (notif) => {
-  setMostrarNotif(false);
-  const { data, error } = await supabase
-    .from("pedidos")
-    .select("*, disenos(*)")
-    .eq("id", notif.id)
-    .single();
+  const abrirDesdeNotificacion = async (notif) => {
+    setMostrarNotif(false);
+    const { data, error } = await supabase
+      .from("pedidos")
+      .select("*, disenos(*)")
+      .eq("id", notif.id)
+      .single();
 
-  if (!error && data) {
-    setPedidoVer(data);
-    setModalVerPedido(true);
-  }
-};
+    if (!error && data) {
+      setPedidoVer(data);
+      setModalVerPedido(true);
+    }
+  };
   // ─── RENDER ──────────────────────────────────────────────────────────
 
   return (
@@ -789,7 +801,7 @@ const abrirDesdeNotificacion = async (notif) => {
                   </p>
                   {notificaciones.length === 0 ? (
                     <p className="notif-vacio">No hay entregas próximas.</p>
-                  ) :  (
+                  ) : (
                     notificaciones.map((n) => {
                       const dias = diasRestantes(n.fecha_entrega);
                       return (

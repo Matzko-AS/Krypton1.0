@@ -10,6 +10,7 @@ import HomeDashboard from "../inicio/HomeDashboard";
 import PerfilModal from "../perfil/PerfilModal";
 import "../perfil/PerfilModal.css";
 import ChatbotWidget from "../../chatbot/ChatbotWidget";
+const validarTelefono = (valor) => /^[0-9+\-\s]{7,15}$/.test((valor || "").trim())
 
 const DashboardDisenador = () => {
   const [seccion, setSeccion] = useState("inicio");
@@ -196,6 +197,12 @@ const DashboardDisenador = () => {
   const agregarPedido = async () => {
     if (!nuevoPedido.cliente_nombre) return;
 
+    if (!validarTelefono(nuevoPedido.cliente_contacto)) {
+      alert("El número de teléfono del cliente es obligatorio y debe ser válido (7 a 15 dígitos).")
+      return
+    }
+
+
     const { data: userData } = await supabase.auth.getUser();
     const estadoFinal = nuevoPedido.esLetrero
       ? "en_diseño"
@@ -276,6 +283,11 @@ const DashboardDisenador = () => {
   };
 
   const guardarEdicion = async () => {
+    if (!validarTelefono(pedidoEditar.cliente_contacto)) {
+      alert("El número de teléfono del cliente es obligatorio y debe ser válido (7 a 15 dígitos).")
+      return
+    }
+
     const { error } = await supabase
       .from("pedidos")
       .update({
