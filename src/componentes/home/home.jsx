@@ -10,7 +10,7 @@ const Home = () => {
       <div className="home-left">
         <div className="home-brand">
           <h2>KRYPTON</h2>
-          <p>Sistema de Gestión con Blockchain</p>
+          <p>Sistema de Gestión</p>
         </div>
 
         <div className="home-preview">
