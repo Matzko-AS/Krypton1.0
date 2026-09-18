@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { supabase } from "../../supabase/supabaseClient"
-import "./ChatCliente.css"
+import "./Chatcliente.css"
 
 const WHATSAPP_NUMERO = "593997165947"
 const WHATSAPP_MENSAJE = "Hola, vengo del chat de Kryptón y quiero hablar con un asesor."
