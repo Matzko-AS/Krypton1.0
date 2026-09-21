@@ -4,8 +4,7 @@ const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-// Cliente con service role: ignora RLS, ve todo (pedidos/stock son datos
-// compartidos de la empresa, ver justificación en la conversación).
+
 const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
 const corsHeaders = {
@@ -176,7 +175,7 @@ async function ejecutarTool(
     case "consultar_stock": {
       const { data, error } = await supabaseAdmin
         .from("materiales")
-        .select("nombre, tipo_material, subtipo, stock, unidad, estado")
+        .select("nombre, tipo_material, subtipo, largo, unidad, estado")
         .or(`nombre.ilike.%${args.nombre_material}%,tipo_material.ilike.%${args.nombre_material}%`)
         .limit(10);
       if (error) return { error: error.message };
@@ -259,7 +258,7 @@ async function ejecutarTool(
       const { termino } = args as { termino: string };
       const { data, error } = await supabaseAdmin
         .from("materiales")
-        .select("id, nombre, subtipo, stock, unidad, estado")
+        .select("id, nombre, subtipo, largo, unidad, estado")
         .ilike("nombre", `%${termino}%`)
         .neq("estado", "agotado");
 
@@ -275,7 +274,7 @@ async function ejecutarTool(
           id: m.id,
           descripcion: esPublico
             ? `${m.nombre}${m.subtipo ? ` (${m.subtipo})` : ""}`
-            : `${m.nombre}${m.subtipo ? ` (${m.subtipo})` : ""} — Stock: ${m.stock} ${m.unidad}`,
+            : `${m.nombre}${m.subtipo ? ` (${m.subtipo})` : ""} — Stock: ${m.largo} ${m.unidad}`,
         })),
       };
     }

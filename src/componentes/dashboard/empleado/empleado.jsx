@@ -1340,7 +1340,7 @@ const DashboardEmpleado = () => {
                     {materiales.map((mat) => (
                       <option key={mat.id} value={mat.id}>
                         {mat.nombre} {mat.subtipo ? `(${mat.subtipo})` : ""} —
-                        Stock: {mat.stock} {mat.unidad}
+                        Stock: {mat.largo} {mat.unidad}
                       </option>
                     ))}
                   </select>
@@ -1352,8 +1352,7 @@ const DashboardEmpleado = () => {
                         marginTop: "4px",
                       }}
                     >
-                      ✅ Stock disponible: {stockDisponible.stock}{" "}
-                      {stockDisponible.unidad}
+                      ✅ Stock disponible 
                     </span>
                   )}
                   {stockDisponible && stockDisponible.stock === 0 && (
