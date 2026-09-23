@@ -305,3 +305,15 @@
   to { transform: rotate(360deg); }
 }
 .spin { animation: spin 0.7s linear infinite; display: inline-block; }
+
+/* ── Cambio de rol ── */
+
+.perfil-form select.perfil-input {
+  cursor: pointer;
+  appearance: auto;
+}
+
+.perfil-form select.perfil-input:focus {
+  outline: none;
+  border-color: #2563eb;
+}

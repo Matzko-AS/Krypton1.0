@@ -3,12 +3,13 @@ import Boton from '../boton/boton'
 import { useState } from 'react'
 import { supabase } from '../../supabase/supabaseClient.js'
 import { useNavigate } from 'react-router-dom'
-
+import "./login.css";
 const Login = () => {
   const [formData, setFormData] = useState({ usuario: "", password: "" })
   const [error, setError] = useState("")
   const [cargando, setCargando] = useState(false)
   const [recuperando, setRecuperando] = useState(false)
+  const [mostrarUsuario, setMostrarUsuario] = useState(false)
   const [mensajeRecuperar, setMensajeRecuperar] = useState("")
   const navigate = useNavigate()
 
@@ -106,13 +107,24 @@ const handleSubmit = async (e) => {
         </button>
         <h3>Inicio de Sesión</h3>
 
-        <Input
-          placeholder="Usuario"
-          type="password"
-          required
-          name="usuario"
-          onChange={handleChange}
-        />
+<div className="input-con-boton">
+  <Input
+    placeholder="Usuario"
+    type={mostrarUsuario ? "text" : "password"}
+    required
+    name="usuario"
+    onChange={handleChange}
+  />
+
+  <button
+    type="button"
+    className="btn-mostrar-usuario"
+    onClick={() => setMostrarUsuario(!mostrarUsuario)}
+    title={mostrarUsuario ? "Ocultar usuario" : "Mostrar usuario"}
+  >
+    {mostrarUsuario ? "X" : "👁️"}
+  </button>
+</div>
         <Input
           placeholder="Contraseña"
           type="password"

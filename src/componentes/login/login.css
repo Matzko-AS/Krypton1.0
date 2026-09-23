@@ -1,0 +1,19 @@
+.input-con-boton {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-con-boton input {
+  padding-right: 45px;
+}
+
+.btn-mostrar-usuario {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 5px;
+}
