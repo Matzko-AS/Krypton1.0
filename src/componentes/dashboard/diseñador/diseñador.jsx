@@ -10,7 +10,10 @@ import HomeDashboard from "../inicio/HomeDashboard";
 import PerfilModal from "../perfil/PerfilModal";
 import "../perfil/PerfilModal.css";
 import ChatbotWidget from "../../chatbot/ChatbotWidget";
-const validarTelefono = (valor) => /^[0-9+\-\s]{7,15}$/.test((valor || "").trim())
+import { tipoMat, m2, formatoDisponible, consumoMaterial } from "../../../utils/materiales.js"
+
+const validarTelefono = (valor) =>
+  /^[0-9+\-\s]{7,15}$/.test((valor || "").trim());
 
 const DashboardDisenador = () => {
   const [seccion, setSeccion] = useState("inicio");
@@ -58,6 +61,10 @@ const DashboardDisenador = () => {
     configuracion: "",
     estado: "en_diseño",
     material_id: "",
+    ancho: "",
+    largo: "",
+    conLaminado: false,
+    laminado_id: "",
     esLetrero: false,
     letrero_tipo: "",
     letrero_alto: "",
@@ -113,7 +120,7 @@ const DashboardDisenador = () => {
     setCargando(true);
     const { data, error } = await supabase
       .from("pedidos")
-      .select("*, disenos(*)")
+      .select("*, disenos(*), pedido_materiales(material_id, cantidad)")
       .order("created_at", { ascending: false });
     if (!error) setPedidos(data);
     setCargando(false);
@@ -168,6 +175,10 @@ const DashboardDisenador = () => {
         ...nuevoPedido,
         esLetrero: checked,
         material_id: checked ? "" : nuevoPedido.material_id,
+        ancho: checked ? "" : nuevoPedido.ancho,
+        largo: checked ? "" : nuevoPedido.largo,
+        conLaminado: false,
+        laminado_id: "",
         letrero_tipo: checked ? nuevoPedido.letrero_tipo : "",
         letrero_alto: checked ? nuevoPedido.letrero_alto : "",
         letrero_largo: checked ? nuevoPedido.letrero_largo : "",
@@ -177,8 +188,22 @@ const DashboardDisenador = () => {
     }
 
     if (name === "material_id") {
-      setNuevoPedido({ ...nuevoPedido, [name]: nuevoValor });
+      setNuevoPedido({
+        ...nuevoPedido,
+        material_id: nuevoValor,
+        conLaminado: false,
+        laminado_id: "",
+      });
       verificarStock(nuevoValor);
+      return;
+    }
+
+    if (name === "conLaminado") {
+      setNuevoPedido({
+        ...nuevoPedido,
+        conLaminado: checked,
+        laminado_id: checked ? nuevoPedido.laminado_id : "",
+      });
       return;
     }
 
@@ -198,25 +223,69 @@ const DashboardDisenador = () => {
     if (!nuevoPedido.cliente_nombre) return;
 
     if (!validarTelefono(nuevoPedido.cliente_contacto)) {
-      alert("El número de teléfono del cliente es obligatorio y debe ser válido (7 a 15 dígitos).")
-      return
+      alert(
+        "El número de teléfono del cliente es obligatorio y debe ser válido (10 dígitos).",
+      );
+      return;
     }
 
+    const ancho = parseFloat(nuevoPedido.ancho);
+    const largo = parseFloat(nuevoPedido.largo);
+    const cantidad = parseInt(nuevoPedido.cantidad) || 1;
+    const usaMaterial = !nuevoPedido.esLetrero && !!nuevoPedido.material_id;
 
-    const { data: userData } = await supabase.auth.getUser();
-    const estadoFinal = nuevoPedido.esLetrero
+    if (usaMaterial && (!ancho || !largo)) {
+      alert("Ingresa el ancho y largo del pedido (cm).");
+      return;
+    }
+    if (usaMaterial && nuevoPedido.conLaminado && !nuevoPedido.laminado_id) {
+      alert("Selecciona el material de laminación.");
+      return;
+    }
+
+    // 1) Primero se definen los materiales...
+    const matPrincipal = materiales.find(
+      (m) => m.id === nuevoPedido.material_id,
+    );
+    const matLaminado = nuevoPedido.conLaminado
+      ? materiales.find((m) => m.id === nuevoPedido.laminado_id)
+      : null;
+
+    // 2) ...y recién después se usan
+    if (usaMaterial) {
+      const noCabe = [matPrincipal, matLaminado].filter(
+        (m) => m && !consumoMaterial(m, ancho, largo, cantidad).cabe,
+      );
+      if (noCabe.length > 0) {
+        const seguir = window.confirm(
+          "La pieza es más ancha que el rollo de " +
+            noCabe.map((m) => m.nombre).join(" y ") +
+            ". ¿Guardar de todos modos?",
+        );
+        if (!seguir) return;
+      }
+    }
+
+    const alcanza = (m) =>
+      m &&
+      Number(m.area_disponible_cm2) >=
+        consumoMaterial(m, ancho, largo, cantidad).area;
+
+    const estadoFinal = !usaMaterial
       ? "en_diseño"
-      : stockDisponible && stockDisponible.stock > 0
+      : alcanza(matPrincipal) && (!matLaminado || alcanza(matLaminado))
         ? "en_diseño"
         : "sin_material";
+
+    const { data: userData } = await supabase.auth.getUser();
 
     const { data: pedidoCreado, error } = await supabase
       .from("pedidos")
       .insert({
         usuario_id: userData.user.id,
         cliente_nombre: nuevoPedido.cliente_nombre,
-        cliente_contacto: nuevoPedido.cliente_contacto,
-        cantidad: parseInt(nuevoPedido.cantidad),
+        cliente_contacto: nuevoPedido.cliente_contacto.trim(),
+        cantidad,
         descuento: nuevoPedido.descuento,
         prioridad: nuevoPedido.prioridad,
         fecha_entrega: nuevoPedido.fecha_entrega || null,
@@ -224,9 +293,9 @@ const DashboardDisenador = () => {
         perfil_impresion: nuevoPedido.perfil_impresion,
         configuracion: nuevoPedido.configuracion,
         estado: estadoFinal,
-        material_id: nuevoPedido.esLetrero
-          ? null
-          : nuevoPedido.material_id || null,
+        material_id: usaMaterial ? nuevoPedido.material_id : null,
+        ancho: usaMaterial ? ancho : null,
+        largo: usaMaterial ? largo : null,
         letrero_tipo: nuevoPedido.esLetrero ? nuevoPedido.letrero_tipo : null,
         letrero_alto: nuevoPedido.esLetrero
           ? parseFloat(nuevoPedido.letrero_alto) || null
@@ -244,15 +313,35 @@ const DashboardDisenador = () => {
 
     if (error) {
       console.error(error.message);
+      alert("No se pudo guardar el pedido: " + error.message);
       return;
     }
 
-    if (!nuevoPedido.esLetrero && nuevoPedido.material_id && pedidoCreado) {
-      await supabase.from("pedido_materiales").insert({
-        pedido_id: pedidoCreado.id,
-        material_id: nuevoPedido.material_id,
-        cantidad: parseInt(nuevoPedido.cantidad),
-      });
+    if (usaMaterial && pedidoCreado) {
+      const filas = [
+        {
+          pedido_id: pedidoCreado.id,
+          material_id: nuevoPedido.material_id,
+          cantidad,
+        },
+      ];
+      if (nuevoPedido.conLaminado && nuevoPedido.laminado_id) {
+        filas.push({
+          pedido_id: pedidoCreado.id,
+          material_id: nuevoPedido.laminado_id,
+          cantidad,
+        });
+      }
+      const { error: errPM } = await supabase
+        .from("pedido_materiales")
+        .insert(filas);
+      if (errPM) {
+        console.error(errPM.message);
+        alert(
+          "El pedido se creó, pero no se pudo registrar el material: " +
+            errPM.message,
+        );
+      }
     }
 
     setMostrarModal(false);
@@ -284,8 +373,23 @@ const DashboardDisenador = () => {
 
   const guardarEdicion = async () => {
     if (!validarTelefono(pedidoEditar.cliente_contacto)) {
-      alert("El número de teléfono del cliente es obligatorio y debe ser válido (7 a 15 dígitos).")
-      return
+      alert(
+        "El número de teléfono del cliente es obligatorio y debe ser válido (7 a 15 dígitos).",
+      );
+      return;
+    }
+
+    const tieneMateriales = (pedidoEditar.pedido_materiales || []).length > 0;
+    const editaDims =
+      tieneMateriales && !esLetreroEditar && !pedidoEditar.material_descontado;
+
+    if (
+      editaDims &&
+      pedidoEditar.estado === "en_impresion" &&
+      (!parseFloat(pedidoEditar.ancho) || !parseFloat(pedidoEditar.largo))
+    ) {
+      alert("Para pasar a impresión ingresa el ancho y largo del pedido.");
+      return;
     }
 
     const { error } = await supabase
@@ -313,6 +417,12 @@ const DashboardDisenador = () => {
           ? parseFloat(pedidoEditar.precio_total)
           : null,
         abono: pedidoEditar.abono ? parseFloat(pedidoEditar.abono) : 0,
+        ...(editaDims
+          ? {
+              ancho: parseFloat(pedidoEditar.ancho) || null,
+              largo: parseFloat(pedidoEditar.largo) || null,
+            }
+          : {}),
       })
       .eq("id", pedidoEditar.id);
 
@@ -320,6 +430,7 @@ const DashboardDisenador = () => {
       setModalEditar(false);
       setPedidoEditar(null);
       setEsLetreroEditar(false);
+      cargarMateriales();
       cargarPedidos();
       toast.success("Guardado exitosamente", {
         position: "bottom-right",
@@ -343,7 +454,7 @@ const DashboardDisenador = () => {
     }
     const { data } = await supabase
       .from("materiales")
-      .select("stock, nombre, unidad, estado")
+      .select("stock, nombre, unidad, estado, area_disponible_cm2")
       .eq("id", materialId)
       .single();
     if (data) setStockDisponible(data);
@@ -430,12 +541,25 @@ const DashboardDisenador = () => {
       return;
     }
 
+    if (
+      pedidoAsociado &&
+      (pedidoAsociado.pedido_materiales || []).length > 0 &&
+      !pedidoAsociado.material_descontado &&
+      (!pedidoAsociado.ancho || !pedidoAsociado.largo)
+    ) {
+      alert(
+        "Este pedido no tiene ancho y largo. Edítalo y complétalos antes de aprobar el diseño.",
+      );
+      return;
+    }
+
     await supabase
       .from("pedidos")
       .update({ estado: "en_impresion" })
       .eq("id", diseno.pedido_id);
     cargarDisenos();
     cargarPedidos();
+    cargarMateriales();
   };
 
   const rechazarDiseno = async (diseno) => {
@@ -477,7 +601,6 @@ const DashboardDisenador = () => {
         .eq("id", pedido.id);
       if (error) throw error;
 
-
       cargarPedidos();
     } catch (error) {
       console.error("Error al eliminar:", error.message);
@@ -513,8 +636,6 @@ const DashboardDisenador = () => {
         .update({ estado: "terminado" })
         .eq("id", pedido.id);
       if (errPedido) throw errPedido;
-
-
 
       cargarPedidos();
     } catch (e) {
@@ -594,6 +715,8 @@ const DashboardDisenador = () => {
     const entrega = new Date(fecha + "T00:00:00");
     return Math.ceil((entrega - hoy) / (1000 * 60 * 60 * 24));
   };
+  const tipoMat = (m) => (m?.tipo_material || "").toLowerCase();
+  const m2 = (cm2) => ((Number(cm2) || 0) / 10000).toFixed(2);
 
   const claseUrgencia = (fecha) => {
     const dias = diasRestantes(fecha);
@@ -601,6 +724,17 @@ const DashboardDisenador = () => {
     if (dias === 1) return "proxima";
     return "normal";
   };
+
+  const materialSel = materiales.find((m) => m.id === nuevoPedido.material_id);
+  const permiteLaminado = ["vinil", "pvc"].includes(tipoMat(materialSel));
+const consumoSel = materialSel
+  ? consumoMaterial(
+      materialSel,
+      nuevoPedido.ancho,
+      nuevoPedido.largo,
+      parseInt(nuevoPedido.cantidad) || 1,
+    )
+  : null;
   // ─── RENDER ─────────────────────────────────────────────────────────
 
   return (
@@ -1091,47 +1225,137 @@ const DashboardDisenador = () => {
                 </label>
               </div>
 
+              {/* ── MATERIAL (si NO es letrero) ── */}
               {!nuevoPedido.esLetrero && (
-                <div className="modal-field modal-field-full">
-                  <label>Material</label>
-                  <select
-                    name="material_id"
-                    value={nuevoPedido.material_id || ""}
-                    onChange={handleChangePedido}
-                  >
-                    <option value="">Seleccionar material...</option>
-                    {materiales.map((mat) => (
-                      <option key={mat.id} value={mat.id}>
-                        {mat.nombre} {mat.subtipo ? `(${mat.subtipo})` : ""} —
-                        Stock: {mat.largo} {mat.unidad}
-                      </option>
-                    ))}
-                  </select>
-                  {stockDisponible && stockDisponible.stock > 0 && (
-                    <span
-                      style={{
-                        fontSize: "12px",
-                        color: "#22c55e",
-                        marginTop: "4px",
-                      }}
+                <>
+                  <div className="modal-field modal-field-full">
+                    <label>Material</label>
+                    <select
+                      name="material_id"
+                      value={nuevoPedido.material_id || ""}
+                      onChange={handleChangePedido}
                     >
-                      ✅ Stock disponible: 
-                    </span>
+                      <option value="">Seleccionar material...</option>
+                      {materiales
+                        .filter((m) => tipoMat(m) !== "laminacion")
+                        .map((mat) => (
+                          <option key={mat.id} value={mat.id}>
+                            {mat.nombre} {mat.subtipo ? `(${mat.subtipo})` : ""}{" "}
+                            — Disp: {formatoDisponible(mat)}
+                          </option>
+                        ))}
+                    </select>
+                    {stockDisponible &&
+                      stockDisponible.area_disponible_cm2 > 0 && (
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            color: "#22c55e",
+                            marginTop: "4px",
+                          }}
+                        >
+                          ✅ Disponible: {formatoDisponible(stockDisponible)}
+                        </span>
+                      )}
+                    {stockDisponible &&
+                      !(stockDisponible.area_disponible_cm2 > 0) && (
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            color: "#ef4444",
+                            marginTop: "4px",
+                          }}
+                        >
+                          ⚠️ Sin material. El pedido se registrará como
+                          "sin_material"
+                        </span>
+                      )}
+                  </div>
+
+                  {nuevoPedido.material_id && (
+                    <>
+                      <div className="modal-field">
+                        <label>Ancho (cm) — a lo ancho del rollo</label>
+                        <input
+                          type="number"
+                          name="ancho"
+                          min="1"
+                          placeholder="ej: 120"
+                          value={nuevoPedido.ancho}
+                          onChange={handleChangePedido}
+                        />
+                      </div>
+                      <div className="modal-field">
+                        <label>Largo (cm)</label>
+                        <input
+                          type="number"
+                          name="largo"
+                          min="1"
+                          placeholder="ej: 60"
+                          value={nuevoPedido.largo}
+                          onChange={handleChangePedido}
+                        />
+                      </div>
+                      {nuevoPedido.ancho && nuevoPedido.largo && consumoSel && (
+                        <span
+                          className="descuento-aviso"
+                          style={{
+                            gridColumn: "1 / -1",
+                            color: consumoSel.cabe ? "#94a3b8" : "#f59e0b",
+                          }}
+                        >
+                          Se usarán {consumoSel.texto} (incluye 5 cm de borde
+                          por lado)
+                          {!consumoSel.cabe &&
+                            " ⚠️ La pieza es más ancha que el rollo"}
+                        </span>
+                      )}
+                    </>
                   )}
-                  {stockDisponible && stockDisponible.stock === 0 && (
-                    <span
-                      style={{
-                        fontSize: "12px",
-                        color: "#ef4444",
-                        marginTop: "4px",
-                      }}
-                    >
-                      ⚠️ Sin stock. El pedido se registrará como "sin_material"
-                    </span>
+
+                  {permiteLaminado && (
+                    <div className="modal-field modal-field-full">
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          name="conLaminado"
+                          checked={nuevoPedido.conLaminado}
+                          onChange={handleChangePedido}
+                        />
+                        ¿Lleva laminado?
+                      </label>
+                      {nuevoPedido.conLaminado && (
+                        <select
+                          name="laminado_id"
+                          value={nuevoPedido.laminado_id}
+                          onChange={handleChangePedido}
+                          style={{ marginTop: "8px" }}
+                        >
+                          <option value="">Seleccionar laminación...</option>
+                          {materiales
+                            .filter((m) => tipoMat(m) === "laminacion")
+                            .map((mat) => (
+                              <option key={mat.id} value={mat.id}>
+                                {mat.nombre}{" "}
+                                {mat.subtipo ? `(${mat.subtipo})` : ""} — Disp:{" "}
+                                {formatoDisponible(mat)}
+                              </option>
+                            ))}
+                        </select>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )}
 
+              {/* ── CAMPOS DE LETRERO (si ES letrero) ── */}
               {nuevoPedido.esLetrero && (
                 <>
                   <div className="modal-field">
@@ -1209,6 +1433,7 @@ const DashboardDisenador = () => {
                 />
               </div>
             </div>
+
             <div className="modal-buttons">
               <button onClick={agregarPedido} className="btn-guardar">
                 Guardar
@@ -1227,6 +1452,7 @@ const DashboardDisenador = () => {
           </div>
         </div>
       )}
+
 
       {/* ── MODAL EDITAR PEDIDO ───────────────────────────────────── */}
       {modalEditar && pedidoEditar && (
@@ -1371,6 +1597,55 @@ const DashboardDisenador = () => {
                 />
               </div>
 
+              {(pedidoEditar.pedido_materiales || []).length > 0 && (
+                <div className="modal-field modal-field-full">
+                  <label>Materiales del pedido</label>
+                  <p>
+                    {pedidoEditar.pedido_materiales
+                      .map(
+                        (pm) =>
+                          materiales.find((m) => m.id === pm.material_id)
+                            ?.nombre || "—",
+                      )
+                      .join(" + ")}
+                  </p>
+                </div>
+              )}
+
+              {!esLetreroEditar &&
+                (pedidoEditar.pedido_materiales || []).length > 0 &&
+                !pedidoEditar.material_descontado && (
+                  <>
+                    <div className="modal-field">
+                      <label>Ancho (cm)</label>
+                      <input
+                        type="number"
+                        name="ancho"
+                        min="1"
+                        value={pedidoEditar.ancho || ""}
+                        onChange={handleChangeEditar}
+                      />
+                    </div>
+                    <div className="modal-field">
+                      <label>Largo (cm)</label>
+                      <input
+                        type="number"
+                        name="largo"
+                        min="1"
+                        value={pedidoEditar.largo || ""}
+                        onChange={handleChangeEditar}
+                      />
+                    </div>
+                  </>
+                )}
+
+              {pedidoEditar.material_descontado && (
+                <p className="descuento-aviso" style={{ gridColumn: "1 / -1" }}>
+                  ✅ Material ya descontado del inventario ({pedidoEditar.ancho}{" "}
+                  × {pedidoEditar.largo} cm)
+                </p>
+              )}
+
               <div className="modal-field modal-field-full">
                 <label
                   style={{
@@ -1461,29 +1736,62 @@ const DashboardDisenador = () => {
       {modalVerPedido && pedidoVer && (
         <div className="modal-overlay" onClick={() => setModalVerPedido(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Detalles: {pedidoVer.cliente_nombre}</h3>
+            <h3>Pedido — {pedidoVer.cliente_nombre}</h3>
             <div className="modal-grid">
               <div className="modal-field">
                 <label>Estado</label>
-                <p>{pedidoVer.estado}</p>
+                <span
+                  className="badge"
+                  style={{
+                    background: colorEstado(pedidoVer.estado),
+                    display: "inline-block",
+                  }}
+                >
+                  {pedidoVer.estado}
+                </span>
               </div>
               <div className="modal-field">
                 <label>Prioridad</label>
-                <p>{pedidoVer.prioridad}</p>
-              </div>
-              <div className="modal-field">
-                <label>Cantidad</label>
-                <p>{pedidoVer.cantidad}</p>
+                <span
+                  className="badge"
+                  style={{
+                    background: colorPrioridad(pedidoVer.prioridad),
+                    display: "inline-block",
+                  }}
+                >
+                  {pedidoVer.prioridad}
+                </span>
               </div>
               <div className="modal-field">
                 <label>Contacto</label>
-                <p>{pedidoVer.cliente_contacto || "Sin contacto"}</p>
+                <p>{pedidoVer.cliente_contacto || "—"}</p>
               </div>
               <div className="modal-field">
-                <label>Entrega</label>
-                <p>{pedidoVer.fecha_entrega || "No definida"}</p>
+                <label>Cantidad</label>
+                <p>
+                  {pedidoVer.cantidad}
+                  {pedidoVer.descuento ? " ✅ (con descuento)" : ""}
+                </p>
               </div>
-
+              <div className="modal-field">
+                <label>Perfil de impresión</label>
+                <p>{pedidoVer.perfil_impresion || "—"}</p>
+              </div>
+              <div className="modal-field">
+                <label>Configuración</label>
+                <p>{pedidoVer.configuracion || "—"}</p>
+              </div>
+              <div className="modal-field">
+                <label>Fecha de entrega</label>
+                <p>{pedidoVer.fecha_entrega || "—"}</p>
+              </div>
+              <div className="modal-field">
+                <label>Fecha de creación</label>
+                <p>
+                  {new Date(pedidoVer.created_at).toLocaleDateString("es-EC")}
+                </p>
+              </div>
+              
               {/* PRECIO / ABONO / SALDO */}
               {pedidoVer.precio_total != null && (
                 <>
@@ -1534,6 +1842,41 @@ const DashboardDisenador = () => {
                     </p>
                   </div>
                 </>
+              )}
+
+              {!pedidoVer.letrero_tipo && (
+                <div className="modal-field">
+                  <label>Medidas (ancho × largo)</label>
+                  {pedidoVer.ancho != null && pedidoVer.largo != null ? (
+                    <p style={{ fontWeight: 600 }}>
+                      {pedidoVer.ancho} × {pedidoVer.largo} cm
+                    </p>
+                  ) : (
+                    <p style={{ color: "#f59e0b" }}>Sin registrar</p>
+                  )}
+                </div>
+              )}
+
+              {(pedidoVer.pedido_materiales || []).length > 0 && (
+                <div className="modal-field">
+                  <label>Materiales</label>
+                  <p>
+                    {pedidoVer.pedido_materiales
+                      .map(
+                        (pm) =>
+                          materiales.find((m) => m.id === pm.material_id)
+                            ?.nombre || "—",
+                      )
+                      .join(" + ")}
+                  </p>
+                </div>
+              )}
+
+              {pedidoVer.material_descontado && (
+                <div className="modal-field">
+                  <label>Inventario</label>
+                  <p style={{ color: "#22c55e" }}>✅ Material ya descontado</p>
+                </div>
               )}
 
               <div className="modal-field modal-field-full">
