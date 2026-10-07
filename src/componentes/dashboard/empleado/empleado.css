@@ -368,12 +368,7 @@
   gap: 10px;
 }
 
-.nav-icon {
-  font-size: 16px;
-  width: 20px;
-  flex-shrink: 0;
-  text-align: center;
-}
+
 
 .sidebar.colapsado .nav-text {
   display: none;
@@ -530,4 +525,10 @@
 .notif-item.urgente .notif-dias {
   background: rgba(239,68,68,0.15);
   color: #ef4444;
+}
+.nav-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
 }

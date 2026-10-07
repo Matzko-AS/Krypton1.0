@@ -124,6 +124,7 @@ const HomeDashboard = ({ usuario, rol }) => {
           <p className="home-date">{ahora}</p>
         </div>
         <button className="home-refresh" onClick={cargarDatos} title="Actualizar">
+          <img src="/iconos/actualizar.svg" alt="" />
           <i className="ti ti-refresh" />
         </button>
       </div>

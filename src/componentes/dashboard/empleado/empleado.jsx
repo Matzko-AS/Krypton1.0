@@ -813,15 +813,18 @@ const DashboardEmpleado = () => {
           <button
             className={`nav-item ${seccion === "inicio" ? "active" : ""}`}
             onClick={() => setSeccion("inicio")}
+            title="Inicio"
           >
-            Inicio
+            <img src="/iconos/inicio.svg" alt="" className="nav-icon" />
+
+            <span className="nav-text">Inicio</span>
           </button>
           <button
             className={`nav-item ${seccion === "pedidos" ? "active" : ""}`}
             onClick={() => setSeccion("pedidos")}
             title="Pedidos"
           >
-            <span className="nav-icon">📋</span>
+            <img src="/iconos/pedidos.svg" alt="" className="nav-icon" />
             <span className="nav-text">Pedidos</span>
           </button>
           <button
@@ -829,7 +832,7 @@ const DashboardEmpleado = () => {
             onClick={() => setSeccion("materiales")}
             title="Materiales"
           >
-            <span className="nav-icon">📦</span>
+            <img src="/iconos/materiales.svg" alt="" className="nav-icon" />
             <span className="nav-text">Materiales</span>
           </button>
           <button
@@ -837,7 +840,7 @@ const DashboardEmpleado = () => {
             onClick={() => setSeccion("calculadora")}
             title="Calculadora"
           >
-            <span className="nav-icon">🧮</span>
+            <img src="/iconos/calculadora.svg" alt="" className="nav-icon" />
             <span className="nav-text">Calculadora</span>
           </button>
           <button
@@ -845,7 +848,7 @@ const DashboardEmpleado = () => {
             onClick={() => setSeccion("contabilidad")}
             title="Contabilidad"
           >
-            <span className="nav-icon">💰</span>
+            <img src="/iconos/contabilidad.svg" alt="" className="nav-icon" />
             <span className="nav-text">Contabilidad</span>
           </button>
         </nav>
@@ -904,7 +907,8 @@ const DashboardEmpleado = () => {
                 className="btn-campana"
                 onClick={() => setMostrarNotif(!mostrarNotif)}
               >
-                🔔
+                <img src="/iconos/campasna.svg" alt="" className="nav-icon" />
+
                 {notificaciones.length > 0 && (
                   <span className="campana-badge">{notificaciones.length}</span>
                 )}

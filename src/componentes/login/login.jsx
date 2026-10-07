@@ -9,7 +9,7 @@ const Login = () => {
   const [error, setError] = useState("")
   const [cargando, setCargando] = useState(false)
   const [recuperando, setRecuperando] = useState(false)
-  const [mostrarUsuario, setMostrarUsuario] = useState(false)
+  const [mostrarcontra, setMostrarcontra] = useState(false)
   const [mensajeRecuperar, setMensajeRecuperar] = useState("")
   const navigate = useNavigate()
 
@@ -107,31 +107,36 @@ const handleSubmit = async (e) => {
         </button>
         <h3>Inicio de Sesión</h3>
 
-<div className="input-con-boton">
+
   <Input
     placeholder="Usuario"
-    type={mostrarUsuario ? "text" : "password"}
+    type="text" 
     required
     name="usuario"
     onChange={handleChange}
   />
 
-  <button
-    type="button"
-    className="btn-mostrar-usuario"
-    onClick={() => setMostrarUsuario(!mostrarUsuario)}
-    title={mostrarUsuario ? "Ocultar usuario" : "Mostrar usuario"}
-  >
-    {mostrarUsuario ? "X" : "👁️"}
-  </button>
-</div>
+
+<div className="input-con-boton">
         <Input
           placeholder="Contraseña"
-          type="password"
+          type={mostrarcontra ? "text" : "password"}
           required
           name="password"
           onChange={handleChange}
         />
+<button
+  type="button"
+  className="btn-mostrar-usuario"
+  onClick={() => setMostrarcontra(!mostrarcontra)}
+  title={mostrarcontra ? "Ocultar contraseña" : "Mostrar contraseña"}
+>
+  <img
+    src={mostrarcontra ? "/iconos/novercontra.svg" : "/iconos/vercontra.svg"}
+    alt={mostrarcontra ? "Ocultar contraseña" : "Mostrar contraseña"}
+  />
+</button>
+        </div>
 
         {error && <p className="error-mensaje">{error}</p>}
         {mensajeRecuperar && <p className="exito-mensaje">{mensajeRecuperar}</p>}

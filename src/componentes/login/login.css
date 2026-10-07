@@ -9,11 +9,22 @@
 }
 
 .btn-mostrar-usuario {
-  position: absolute;
+  position:absolute;
   right: 10px;
   background: none;
   border: none;
   cursor: pointer;
   font-size: 18px;
   padding: 5px;
+}
+.btn-mostrar-usuario img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.btn-mostrar-usuario {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

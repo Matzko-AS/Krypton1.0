@@ -758,15 +758,18 @@ const consumoSel = materialSel
           <button
             className={`nav-item ${seccion === "inicio" ? "active" : ""}`}
             onClick={() => setSeccion("inicio")}
+            title="Inicio"
           >
-            Inicio
+            <img src="/iconos/inicio.svg" alt="" className="nav-icon" />
+
+            <span className="nav-text">Inicio</span>
           </button>
           <button
             className={`nav-item ${seccion === "pedidos" ? "active" : ""}`}
             onClick={() => setSeccion("pedidos")}
             title="Pedidos"
           >
-            <span className="nav-icon">📋</span>
+            <img src="/iconos/pedidos.svg" alt="" className="nav-icon" />
             <span className="nav-text">Pedidos</span>
           </button>
           <button
@@ -774,7 +777,8 @@ const consumoSel = materialSel
             onClick={() => setSeccion("disenos")}
             title="Diseños"
           >
-            <span className="nav-icon">🎨</span>
+            <img src="/iconos/diseños.svg" alt="" 
+            className="nav-icon"/>
             <span className="nav-text">Diseños</span>
           </button>
           <button
@@ -782,7 +786,7 @@ const consumoSel = materialSel
             onClick={() => setSeccion("calculadora")}
             title="Calculadora"
           >
-            <span className="nav-icon">🧮</span>
+            <img src="/iconos/calculadora.svg" alt="" className="nav-icon" />
             <span className="nav-text">Calculadora</span>
           </button>
           <button
@@ -790,9 +794,10 @@ const consumoSel = materialSel
             onClick={() => setSeccion("contabilidad")}
             title="Contabilidad"
           >
-            <span className="nav-icon">💰</span>
+            <img src="/iconos/contabilidad.svg" alt="" className="nav-icon" />
             <span className="nav-text">Contabilidad</span>
           </button>
+
         </nav>
         <button
           className="sidebar-logout"
