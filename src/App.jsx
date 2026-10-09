@@ -6,6 +6,7 @@ import DashboardEmpleado from "./componentes/dashboard/empleado/empleado"
 import DashboardDiseñador from "./componentes/dashboard/diseñador/diseñador"
 import ResetPassword from "./componentes/login/ResetPassword"
 import ChatCliente from "./componentes/chatbot-publico/ChatCliente"
+import DashboardAdmin from "./componentes/dashboard/admin/admin"
 
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
         <Route path="/dashboard/empleado" element={<DashboardEmpleado/>}/>
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/chat" element={<ChatCliente />} />
+        <Route path="/dashboard/admin" element={<DashboardAdmin />} />
       </Routes>
     </Router>
   )
