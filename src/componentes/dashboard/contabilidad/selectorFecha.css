@@ -1,0 +1,80 @@
+
+.ct-sel { position: relative; }
+.ct-sel-btn {
+  display: inline-flex; align-items: center; gap: 12px;
+  min-width: 190px; justify-content: space-between;
+  background: var(--bg-panel); border: 1px solid var(--line-strong); border-radius: 10px;
+  padding: 7px 14px; color: var(--text); cursor: pointer; text-align: left;
+  font: inherit; transition: border-color .15s;
+}
+.ct-sel-btn:hover, .ct-sel-btn[aria-expanded="true"] { border-color: var(--accent); }
+.ct-sel-text { display: flex; flex-direction: column; line-height: 1.25; }
+.ct-sel-title { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; text-transform: capitalize; }
+.ct-sel-sub { font-size: 0.76rem; color: var(--faint); }
+.ct-sel-caret { color: var(--muted); font-size: 0.75rem; }
+
+.ct-cal {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 60;
+  width: 300px; padding: 14px;
+  background: #162033; border: 1px solid var(--line-strong); border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .5);
+}
+.ct-cal-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ct-chip {
+  background: var(--bg-field); border: 1px solid var(--line); color: var(--muted);
+  border-radius: 99px; padding: 5px 11px; font-size: 0.76rem; font-weight: 500;
+  cursor: pointer; transition: border-color .15s, color .15s;
+}
+.ct-chip:hover { border-color: var(--accent); color: var(--text); }
+.ct-chip.on { background: rgba(79, 110, 247, .22); border-color: var(--accent); color: #c7d2fe; font-weight: 600; }
+
+.ct-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ct-cal-mes { font-size: 0.9rem; font-weight: 600; text-transform: capitalize; }
+.ct-cal-nav {
+  width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+  background: transparent; border: 1px solid var(--line-strong); color: var(--muted); font-size: 1.1rem; line-height: 1;
+}
+.ct-cal-nav:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+.ct-cal-nav:disabled { opacity: .3; cursor: default; }
+
+.ct-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.ct-cal-dow { text-align: center; font-size: 0.7rem; color: var(--faint); padding: 4px 0; }
+.ct-cal-day {
+  aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: transparent; border: 1px solid transparent; border-radius: 8px;
+  color: var(--text); font-size: 0.82rem; font-weight: 500; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.ct-cal-day:hover:not(:disabled):not(.sel) { background: rgba(255, 255, 255, .07); }
+.ct-cal-day:disabled { color: #475569; cursor: default; }
+.ct-cal-day.hoy:not(.sel) { border-color: var(--line-strong); }
+.ct-cal-day.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.ct-dots { display: flex; gap: 3px; height: 5px; }
+.ct-dots i, .ct-cal-leyenda i { display: inline-block; width: 5px; height: 5px; border-radius: 50%; }
+.ct-dots i.venta, .ct-cal-leyenda i.venta { background: var(--pos); }
+.ct-dots i.gasto, .ct-cal-leyenda i.gasto { background: var(--neg); }
+.ct-cal-day.sel .ct-dots i { box-shadow: 0 0 0 1px rgba(255, 255, 255, .75); }
+
+.ct-cal-leyenda { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 0.72rem; color: var(--faint); }
+.ct-cal-leyenda i:nth-of-type(2) { margin-left: 8px; }
+
+/* ── PANEL DE EXPORTACIÓN ── */
+.ct-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+  width: 284px; padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  background: #162033; border: 1px solid var(--line-strong); border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .5);
+}
+.ct-pop-title { font-size: 0.9rem; font-weight: 600; }
+.ct-pop-range { font-size: 0.9rem; font-weight: 600; color: #a5b4fc; }
+.ct-pop-hint { margin-top: -4px; font-size: 0.75rem; color: var(--faint); line-height: 1.4; }
+.ct-pop-actions { display: flex; flex-direction: column; gap: 8px; }
+
+@media (max-width: 640px) {
+  .ct-cal { width: min(300px, calc(100vw - 32px)); }
+  .ct-pop { right: auto; left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ct-sel-btn, .ct-chip { transition: none; }
+}

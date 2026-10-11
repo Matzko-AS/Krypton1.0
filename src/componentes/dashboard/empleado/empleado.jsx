@@ -10,6 +10,8 @@ import HomeDashboard from "../inicio/HomeDashboard";
 import PerfilModal from "../perfil/PerfilModal";
 import "../perfil/PerfilModal.css";
 import ChatbotWidget from "../../chatbot/ChatbotWidget";
+import BuscarOrdenar from "../comunes/BuscarOrdenar";
+import { useFiltroLista, filtrarYOrdenar } from "../comunes/listaUtils";
 import {
   tipoMat,
   formatoDisponible,
@@ -20,6 +22,7 @@ const validarTelefono = (valor) =>
 
 const DashboardEmpleado = () => {
   const [seccion, setSeccion] = useState("inicio");
+  const filtro = useFiltroLista(seccion);
   const [pedidos, setPedidos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [mostrarModal, setMostrarModal] = useState(false);
@@ -77,6 +80,11 @@ const DashboardEmpleado = () => {
     letrero_largo: "",
     precio_total: "",
     abono: "",
+    ancho: "",
+    largo: "",
+    conLaminado: false,
+    laminado_id: "",
+    vinil_id: "",
   };
 
   const [nuevoPedido, setNuevoPedido] = useState(pedidoInicial);
@@ -186,6 +194,7 @@ const DashboardEmpleado = () => {
         largo: checked ? "" : nuevoPedido.largo,
         conLaminado: false,
         laminado_id: "",
+        vinil_id: "",
         letrero_tipo: checked ? nuevoPedido.letrero_tipo : "",
         letrero_alto: checked ? nuevoPedido.letrero_alto : "",
         letrero_largo: checked ? nuevoPedido.letrero_largo : "",
@@ -200,6 +209,7 @@ const DashboardEmpleado = () => {
         material_id: nuevoValor,
         conLaminado: false,
         laminado_id: "",
+        vinil_id: "",
       });
       verificarStock(nuevoValor);
       return;
@@ -230,7 +240,7 @@ const DashboardEmpleado = () => {
 
     if (!validarTelefono(nuevoPedido.cliente_contacto)) {
       alert(
-        "El número de teléfono del cliente es obligatorio y debe ser válido (7 a 15 dígitos).",
+        "El número de teléfono del cliente es obligatorio y debe ser válido (10 dígitos).",
       );
       return;
     }
@@ -240,8 +250,17 @@ const DashboardEmpleado = () => {
     const cantidad = parseInt(nuevoPedido.cantidad) || 1;
     const usaMaterial = !nuevoPedido.esLetrero && !!nuevoPedido.material_id;
 
+    const matPrincipal = materiales.find(
+      (m) => m.id === nuevoPedido.material_id,
+    );
+    const esPVC = usaMaterial && tipoMat(matPrincipal) === "pvc";
+
     if (usaMaterial && (!ancho || !largo)) {
       alert("Ingresa el ancho y largo del pedido (cm).");
+      return;
+    }
+    if (esPVC && !nuevoPedido.vinil_id) {
+      alert("Selecciona el vinil que se usará con el PVC.");
       return;
     }
     if (usaMaterial && nuevoPedido.conLaminado && !nuevoPedido.laminado_id) {
@@ -249,15 +268,15 @@ const DashboardEmpleado = () => {
       return;
     }
 
-    const matPrincipal = materiales.find(
-      (m) => m.id === nuevoPedido.material_id,
-    );
+    const matVinil = esPVC
+      ? materiales.find((m) => m.id === nuevoPedido.vinil_id)
+      : null;
     const matLaminado = nuevoPedido.conLaminado
       ? materiales.find((m) => m.id === nuevoPedido.laminado_id)
       : null;
 
     if (usaMaterial) {
-      const noCabe = [matPrincipal, matLaminado].filter(
+      const noCabe = [matPrincipal, matVinil, matLaminado].filter(
         (m) => m && !consumoMaterial(m, ancho, largo, cantidad).cabe,
       );
       if (noCabe.length > 0) {
@@ -275,9 +294,14 @@ const DashboardEmpleado = () => {
       Number(m.area_disponible_cm2) >=
         consumoMaterial(m, ancho, largo, cantidad).area;
 
+    const todoAlcanza =
+      alcanza(matPrincipal) &&
+      (!matVinil || alcanza(matVinil)) &&
+      (!matLaminado || alcanza(matLaminado));
+
     const estadoFinal = !usaMaterial
       ? "pendiente"
-      : alcanza(matPrincipal) && (!matLaminado || alcanza(matLaminado))
+      : todoAlcanza
         ? "pendiente"
         : "sin_material";
 
@@ -329,6 +353,13 @@ const DashboardEmpleado = () => {
           cantidad,
         },
       ];
+      if (matVinil) {
+        filas.push({
+          pedido_id: pedidoCreado.id,
+          material_id: matVinil.id,
+          cantidad,
+        });
+      }
       if (nuevoPedido.conLaminado && nuevoPedido.laminado_id) {
         filas.push({
           pedido_id: pedidoCreado.id,
@@ -378,7 +409,7 @@ const DashboardEmpleado = () => {
   const guardarEdicion = async () => {
     if (!validarTelefono(pedidoEditar.cliente_contacto)) {
       alert(
-        "El número de teléfono del cliente es obligatorio y debe ser válido (7 a 15 dígitos).",
+        "El número de teléfono del cliente es obligatorio y debe ser válido (10 dígitos).",
       );
       return;
     }
@@ -781,6 +812,7 @@ const DashboardEmpleado = () => {
 
   const materialSel = materiales.find((m) => m.id === nuevoPedido.material_id);
   const permiteLaminado = ["vinil", "pvc"].includes(tipoMat(materialSel));
+  const esPVCSel = tipoMat(materialSel) === "pvc";
   const consumoSel = materialSel
     ? consumoMaterial(
         materialSel,
@@ -789,6 +821,20 @@ const DashboardEmpleado = () => {
         parseInt(nuevoPedido.cantidad) || 1,
       )
     : null;
+
+  // Búsqueda y orden (lupa)
+  const pedidosVista = filtrarYOrdenar(
+    pedidos,
+    "pedidos",
+    filtro.q,
+    filtro.orden,
+  );
+  const materialesVista = filtrarYOrdenar(
+    materiales,
+    "materiales",
+    filtro.q,
+    filtro.orden,
+  );
 
   // ─── RENDER ──────────────────────────────────────────────────────────
 
@@ -885,6 +931,9 @@ const DashboardEmpleado = () => {
                     : "Calculadora"}
           </h1>
           <div className="header-right">
+            {["pedidos", "materiales"].includes(seccion) && (
+              <BuscarOrdenar key={seccion} tipo={seccion} {...filtro} />
+            )}
             {seccion === "pedidos" && (
               <button
                 className="btn-nuevo"
@@ -981,6 +1030,10 @@ const DashboardEmpleado = () => {
                 <p className="texto-secondary">Cargando pedidos...</p>
               ) : pedidos.length === 0 ? (
                 <p className="texto-secondary">No hay pedidos en producción.</p>
+              ) : pedidosVista.length === 0 ? (
+                <p className="texto-secondary">
+                  No se encontraron pedidos con “{filtro.q}”.
+                </p>
               ) : (
                 <div className="tabla-wrapper">
                   <table className="tabla">
@@ -997,7 +1050,7 @@ const DashboardEmpleado = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {pedidos.map((pedido) => (
+                      {pedidosVista.map((pedido) => (
                         <tr key={pedido.id}>
                           <td>{pedido.cliente_nombre || "—"}</td>
                           <td>{pedido.cliente_contacto || "—"}</td>
@@ -1094,6 +1147,10 @@ const DashboardEmpleado = () => {
                 <p className="texto-secondary">
                   No hay materiales registrados aún.
                 </p>
+              ) : materialesVista.length === 0 ? (
+                <p className="texto-secondary">
+                  No se encontraron materiales con “{filtro.q}”.
+                </p>
               ) : (
                 <div className="tabla-wrapper">
                   <table className="tabla">
@@ -1112,7 +1169,7 @@ const DashboardEmpleado = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {materiales.map((mat) => (
+                      {materialesVista.map((mat) => (
                         <tr key={mat.id}>
                           <td>{mat.nombre}</td>
                           <td>{mat.tipo_material}</td>
@@ -1531,6 +1588,29 @@ const DashboardEmpleado = () => {
                         </span>
                       )}
                   </div>
+
+                  {/* VINIL (obligatorio cuando el material es PVC) */}
+                  {esPVCSel && (
+                    <div className="modal-field modal-field-full">
+                      <label>Vinil (se descuenta junto al PVC)</label>
+                      <select
+                        name="vinil_id"
+                        value={nuevoPedido.vinil_id || ""}
+                        onChange={handleChangePedido}
+                      >
+                        <option value="">Seleccionar vinil...</option>
+                        {materiales
+                          .filter((m) => tipoMat(m) === "vinil")
+                          .map((mat) => (
+                            <option key={mat.id} value={mat.id}>
+                              {mat.nombre}{" "}
+                              {mat.subtipo ? `(${mat.subtipo})` : ""} — Disp:{" "}
+                              {formatoDisponible(mat)}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
 
                   {nuevoPedido.material_id && (
                     <>
@@ -2040,7 +2120,11 @@ const DashboardEmpleado = () => {
                     <option value="">Seleccionar...</option>
                     {nuevoMaterial.tipo_material === "vinil" ||
                     nuevoMaterial.tipo_material === "laminacion" ? (
-                      <option value="152">152 cm</option>
+                      <>
+                        <option value="127">127 cm</option>
+                        <option value="152">152 cm</option>
+                        <option value="165">165 cm</option>
+                      </>
                     ) : (
                       <>
                         <option value="85">85 cm</option>

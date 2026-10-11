@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { supabase } from "../../../supabase/supabaseClient"
 import "./contabilidad.css"
+import "./selectorFecha.css"
 
 // ── Fechas en hora LOCAL (toISOString usa UTC y en Ecuador, después de las
 //    19:00, devolvía el día siguiente) ───────────────────────────────────
@@ -11,6 +12,16 @@ const aISO = (d) => {
   return `${y}-${m}-${day}`
 }
 const hoyISO = () => aISO(new Date())
+const parseISO = (s) => {
+  const [y, m, d] = s.split("-").map(Number)
+  return new Date(y, m - 1, d)
+}
+const primerDia = (d) => new Date(d.getFullYear(), d.getMonth(), 1)
+const sumarDiasISO = (iso, n) => {
+  const d = parseISO(iso)
+  d.setDate(d.getDate() + n)
+  return aISO(d)
+}
 
 const fmt = (n) =>
   Number(n).toLocaleString("es-EC", {
@@ -22,8 +33,87 @@ const fmt = (n) =>
 const hora = (iso) =>
   new Date(iso).toLocaleTimeString("es-EC", { hour: "2-digit", minute: "2-digit" })
 
+const fechaCorta = (iso) =>
+  parseISO(iso).toLocaleDateString("es-EC", { day: "2-digit", month: "2-digit", year: "numeric" })
+
+const fechaMedia = (iso) =>
+  parseISO(iso).toLocaleDateString("es-EC", { day: "numeric", month: "short", year: "numeric" })
+
 const esc = (s) =>
   String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+
+// ── Períodos de exportación (semana = lunes a domingo) ───────────────
+const rangoPeriodo = (base, periodo) => {
+  const d = parseISO(base)
+  if (periodo === "dia") return { desde: base, hasta: base }
+  if (periodo === "semana") {
+    const desdeLunes = (d.getDay() + 6) % 7
+    const ini = new Date(d)
+    ini.setDate(d.getDate() - desdeLunes)
+    const fin = new Date(ini)
+    fin.setDate(ini.getDate() + 6)
+    return { desde: aISO(ini), hasta: aISO(fin) }
+  }
+  return {
+    desde: aISO(new Date(d.getFullYear(), d.getMonth(), 1)),
+    hasta: aISO(new Date(d.getFullYear(), d.getMonth() + 1, 0)),
+  }
+}
+
+const tituloRango = (rango, periodo) => {
+  if (periodo === "dia")
+    return parseISO(rango.desde).toLocaleDateString("es-EC", {
+      weekday: "long", day: "numeric", month: "long", year: "numeric",
+    })
+  if (periodo === "semana")
+    return `Semana del ${fechaMedia(rango.desde)} al ${fechaMedia(rango.hasta)}`
+  return parseISO(rango.desde).toLocaleDateString("es-EC", { month: "long", year: "numeric" })
+}
+
+const nombreArchivo = (rango, periodo) => {
+  if (periodo === "dia") return `contabilidad_dia_${rango.desde}`
+  if (periodo === "semana") return `contabilidad_semana_${rango.desde}_a_${rango.hasta}`
+  return `contabilidad_mes_${rango.desde.slice(0, 7)}`
+}
+
+const sumar = (filas) => {
+  const ventas = filas.filter((r) => r.tipo === "venta").reduce((s, r) => s + Number(r.monto), 0)
+  const gastos = filas.filter((r) => r.tipo === "gasto").reduce((s, r) => s + Number(r.monto), 0)
+  return { ventas, gastos, neta: ventas - gastos }
+}
+
+const resumenPorDia = (filas) => {
+  const mapa = {}
+  filas.forEach((r) => {
+    ;(mapa[r.fecha] = mapa[r.fecha] || []).push(r)
+  })
+  return Object.keys(mapa)
+    .sort()
+    .map((fecha) => ({ fecha, ...sumar(mapa[fecha]) }))
+}
+
+// Trae todos los movimientos del rango (pagina de 1000 en 1000)
+const obtenerRango = async ({ desde, hasta }) => {
+  const filas = []
+  const tam = 1000
+  for (let ini = 0; ; ini += tam) {
+    const { data, error } = await supabase
+      .from("contabilidad")
+      .select(
+        `id, tipo, descripcion, monto, fecha, created_at,
+         cliente_nombre, cliente_contacto, usuarios ( nombre )`
+      )
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .order("fecha", { ascending: true })
+      .order("created_at", { ascending: true })
+      .range(ini, ini + tam - 1)
+    if (error) throw error
+    filas.push(...data)
+    if (data.length < tam) break
+  }
+  return filas
+}
 
 // ── Tabla de precios (solo referencia) ───────────────────────────────
 const TABLAS_PRECIOS = [
@@ -72,6 +162,176 @@ const nuevoItem = () => ({
   precio: "",
 })
 
+// ── Cierra un popover al hacer clic fuera o con Esc ──────────────────
+const useCerrarFuera = (ref, activo, cerrar) => {
+  useEffect(() => {
+    if (!activo) return
+    const fuera = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) cerrar()
+    }
+    const tecla = (e) => e.key === "Escape" && cerrar()
+    document.addEventListener("mousedown", fuera)
+    document.addEventListener("keydown", tecla)
+    return () => {
+      document.removeEventListener("mousedown", fuera)
+      document.removeEventListener("keydown", tecla)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activo])
+}
+
+// ── Selector de fecha con calendario ─────────────────────────────────
+const DIAS_SEMANA = ["L", "M", "M", "J", "V", "S", "D"]
+
+const SelectorFecha = ({ valor, max, onChange, titulo }) => {
+  const [abierto, setAbierto] = useState(false)
+  const [mes, setMes] = useState(() => primerDia(parseISO(valor)))
+  const [marcas, setMarcas] = useState({})
+  const ref = useRef(null)
+
+  useCerrarFuera(ref, abierto, () => setAbierto(false))
+
+  // Marca los días del mes visible que tienen movimientos
+  useEffect(() => {
+    if (!abierto) return
+    let cancelado = false
+    const desde = aISO(mes)
+    const hasta = aISO(new Date(mes.getFullYear(), mes.getMonth() + 1, 0))
+    supabase
+      .from("contabilidad")
+      .select("fecha, tipo")
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .limit(1000)
+      .then(({ data }) => {
+        if (cancelado) return
+        const m = {}
+        ;(data || []).forEach((r) => {
+          m[r.fecha] = m[r.fecha] || {}
+          m[r.fecha][r.tipo] = true
+        })
+        setMarcas(m)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [abierto, mes])
+
+  const alternar = () => {
+    if (!abierto) setMes(primerDia(parseISO(valor)))
+    setAbierto((v) => !v)
+  }
+
+  const elegir = (iso) => {
+    onChange(iso)
+    setAbierto(false)
+  }
+
+  const hoy = hoyISO()
+  const y = mes.getFullYear()
+  const m = mes.getMonth()
+  const huecos = (mes.getDay() + 6) % 7
+  const celdas = [
+    ...Array(huecos).fill(null),
+    ...Array.from({ length: new Date(y, m + 1, 0).getDate() }, (_, i) => aISO(new Date(y, m, i + 1))),
+  ]
+  const siguienteBloqueado = aISO(new Date(y, m + 1, 1)) > max
+
+  const atajos = [
+    ["Hoy", hoy],
+    ["Ayer", sumarDiasISO(hoy, -1)],
+    ["Hace 7 días", sumarDiasISO(hoy, -7)],
+    ["Inicio de mes", hoy.slice(0, 8) + "01"],
+  ]
+
+  return (
+    <div className="ct-sel" ref={ref}>
+      <button
+        type="button"
+        className="ct-sel-btn"
+        onClick={alternar}
+        aria-haspopup="dialog"
+        aria-expanded={abierto}
+      >
+        <span className="ct-sel-text">
+          <span className="ct-sel-title">{titulo}</span>
+          <span className="ct-sel-sub">{fechaMedia(valor)}</span>
+        </span>
+        <span className="ct-sel-caret" aria-hidden="true">▾</span>
+      </button>
+
+      {abierto && (
+        <div className="ct-cal" role="dialog" aria-label="Elegir fecha">
+          <div className="ct-cal-chips">
+            {atajos.map(([etiqueta, iso]) => (
+              <button
+                key={etiqueta}
+                type="button"
+                className={`ct-chip ${valor === iso ? "on" : ""}`}
+                onClick={() => elegir(iso)}
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </div>
+
+          <div className="ct-cal-head">
+            <button
+              type="button"
+              className="ct-cal-nav"
+              onClick={() => setMes(new Date(y, m - 1, 1))}
+              aria-label="Mes anterior"
+            >
+              ‹
+            </button>
+            <span className="ct-cal-mes">
+              {mes.toLocaleDateString("es-EC", { month: "long", year: "numeric" })}
+            </span>
+            <button
+              type="button"
+              className="ct-cal-nav"
+              onClick={() => setMes(new Date(y, m + 1, 1))}
+              disabled={siguienteBloqueado}
+              aria-label="Mes siguiente"
+            >
+              ›
+            </button>
+          </div>
+
+          <div className="ct-cal-grid">
+            {DIAS_SEMANA.map((d, i) => (
+              <span key={i} className="ct-cal-dow">{d}</span>
+            ))}
+            {celdas.map((iso, i) =>
+              iso === null ? (
+                <span key={`v${i}`} />
+              ) : (
+                <button
+                  key={iso}
+                  type="button"
+                  className={`ct-cal-day ${iso === valor ? "sel" : ""} ${iso === hoy ? "hoy" : ""}`}
+                  disabled={iso > max}
+                  onClick={() => elegir(iso)}
+                >
+                  {Number(iso.slice(8))}
+                  <span className="ct-dots" aria-hidden="true">
+                    {marcas[iso]?.venta && <i className="venta" />}
+                    {marcas[iso]?.gasto && <i className="gasto" />}
+                  </span>
+                </button>
+              )
+            )}
+          </div>
+
+          <p className="ct-cal-leyenda">
+            <i className="venta" /> Con ventas <i className="gasto" /> Con gastos
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const Contabilidad = ({ usuario }) => {
   // ── Datos ──────────────────────────────────────────────────────────
   const [registros, setRegistros] = useState([])
@@ -95,6 +355,12 @@ const Contabilidad = ({ usuario }) => {
   // ── Paneles ────────────────────────────────────────────────────────
   const [mostrarPrecios, setMostrarPrecios] = useState(false)
   const [menuExport, setMenuExport] = useState(false)
+  const [periodoExport, setPeriodoExport] = useState("dia")
+  const [exportando, setExportando] = useState(false)
+  const [errorExport, setErrorExport] = useState("")
+  const exportRef = useRef(null)
+
+  useCerrarFuera(exportRef, menuExport, () => setMenuExport(false))
 
   const esHoy = fechaVista === hoyISO()
 
@@ -121,13 +387,7 @@ const Contabilidad = ({ usuario }) => {
   }, [fechaVista])
 
   // ── Totales ────────────────────────────────────────────────────────
-  const totales = useMemo(() => {
-    const suma = (t) =>
-      registros.filter((r) => r.tipo === t).reduce((s, r) => s + Number(r.monto), 0)
-    const ventas = suma("venta")
-    const gastos = suma("gasto")
-    return { ventas, gastos, neta: ventas - gastos }
-  }, [registros])
+  const totales = useMemo(() => sumar(registros), [registros])
 
   const visibles = useMemo(
     () => (filtro === "todos" ? registros : registros.filter((r) => r.tipo === filtro)),
@@ -222,81 +482,154 @@ const Contabilidad = ({ usuario }) => {
   }
 
   // ── Fechas ─────────────────────────────────────────────────────────
-  const cambiarFecha = (dias) => {
-    const d = new Date(fechaVista + "T00:00:00")
-    d.setDate(d.getDate() + dias)
-    setFechaVista(aISO(d))
-  }
+  const cambiarFecha = (dias) => setFechaVista(sumarDiasISO(fechaVista, dias))
 
   const labelFecha = () => {
     if (esHoy) return "Hoy"
-    const ayer = new Date()
-    ayer.setDate(ayer.getDate() - 1)
-    if (fechaVista === aISO(ayer)) return "Ayer"
-    return new Date(fechaVista + "T00:00:00").toLocaleDateString("es-EC", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    })
+    if (fechaVista === sumarDiasISO(hoyISO(), -1)) return "Ayer"
+    return parseISO(fechaVista).toLocaleDateString("es-EC", { weekday: "long" })
   }
 
-  // ── Exportar ───────────────────────────────────────────────────────
-  const exportarCSV = () => {
-    const celda = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`
-    const filas = [["Tipo", "Descripción", "Monto", "Usuario", "Hora"].map(celda)]
-    registros.forEach((r) =>
-      filas.push([r.tipo, r.descripcion, r.monto, r.usuarios?.nombre ?? "", hora(r.created_at)].map(celda))
-    )
-    filas.push([])
-    filas.push([celda("Total ventas"), "", totales.ventas.toFixed(2)])
-    filas.push([celda("Total gastos"), "", totales.gastos.toFixed(2)])
-    filas.push([celda("Ganancia neta"), "", totales.neta.toFixed(2)])
+  // ── Exportar (día / semana / mes) ──────────────────────────────────
+  const rangoExport = rangoPeriodo(fechaVista, periodoExport)
+  const etiquetaRangoExport =
+    periodoExport === "dia"
+      ? fechaMedia(rangoExport.desde)
+      : `${fechaMedia(rangoExport.desde)} – ${fechaMedia(rangoExport.hasta)}`
 
-    const csv = "\uFEFF" + filas.map((f) => f.join(",")).join("\n")
+  const descargarCSV = (filas, rango, periodo) => {
+    const celda = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`
+    const t = sumar(filas)
+    const salida = []
+
+    salida.push([celda(`Contabilidad Krypton — ${tituloRango(rango, periodo)}`)])
+    salida.push([])
+
+    if (periodo !== "dia") {
+      salida.push(["Fecha", "Ventas", "Gastos", "Neto"].map(celda))
+      resumenPorDia(filas).forEach((d) =>
+        salida.push([
+          fechaCorta(d.fecha),
+          d.ventas.toFixed(2),
+          d.gastos.toFixed(2),
+          d.neta.toFixed(2),
+        ].map(celda))
+      )
+      salida.push([])
+    }
+
+    salida.push(["Fecha", "Hora", "Tipo", "Descripción", "Cliente", "Contacto", "Monto", "Usuario"].map(celda))
+    filas.forEach((r) =>
+      salida.push([
+        fechaCorta(r.fecha),
+        hora(r.created_at),
+        r.tipo === "venta" ? "Venta" : "Gasto",
+        r.descripcion,
+        r.cliente_nombre ?? "",
+        r.cliente_contacto ?? "",
+        Number(r.monto).toFixed(2),
+        r.usuarios?.nombre ?? "",
+      ].map(celda))
+    )
+    salida.push([])
+    salida.push([celda("Total ventas"), "", "", "", "", "", t.ventas.toFixed(2)])
+    salida.push([celda("Total gastos"), "", "", "", "", "", t.gastos.toFixed(2)])
+    salida.push([celda("Ganancia neta"), "", "", "", "", "", t.neta.toFixed(2)])
+
+    const csv = "\uFEFF" + salida.map((f) => f.join(",")).join("\n")
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }))
     const a = document.createElement("a")
     a.href = url
-    a.download = `contabilidad_${fechaVista}.csv`
+    a.download = `${nombreArchivo(rango, periodo)}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    setMenuExport(false)
   }
 
-  const exportarPDF = () => {
-    const filasHtml = registros
+  const imprimirPDF = (ventana, filas, rango, periodo) => {
+    const t = sumar(filas)
+
+    const resumenHtml =
+      periodo === "dia"
+        ? ""
+        : `<h2>Resumen por día</h2>
+           <table><thead><tr><th>Fecha</th><th>Ventas</th><th>Gastos</th><th>Neto</th></tr></thead>
+           <tbody>${resumenPorDia(filas)
+             .map(
+               (d) => `<tr><td>${fechaCorta(d.fecha)}</td>
+                 <td class="n">${fmt(d.ventas)}</td><td class="n">${fmt(d.gastos)}</td>
+                 <td class="n">${fmt(d.neta)}</td></tr>`
+             )
+             .join("")}</tbody></table>`
+
+    const filasHtml = filas
       .map(
         (r) => `<tr>
+          <td>${fechaCorta(r.fecha)}</td>
+          <td>${hora(r.created_at)}</td>
           <td>${r.tipo === "venta" ? "Venta" : "Gasto"}</td>
           <td>${esc(r.descripcion)}</td>
-          <td style="text-align:right">${r.tipo === "gasto" ? "-" : ""}${fmt(r.monto)}</td>
+          <td class="n">${r.tipo === "gasto" ? "-" : ""}${fmt(r.monto)}</td>
           <td>${esc(r.usuarios?.nombre ?? "—")}</td>
         </tr>`
       )
       .join("")
 
-    const w = window.open("", "_blank")
-    if (!w) return
-    w.document.write(`<html><head><title>Contabilidad — ${fechaVista}</title>
+    ventana.document.write(`<html><head><title>${esc(nombreArchivo(rango, periodo))}</title>
       <style>
         body{font-family:Arial,sans-serif;padding:24px;color:#111}
-        h1{font-size:18px;margin-bottom:4px} p.sub{color:#666;margin-bottom:20px}
+        h1{font-size:18px;margin-bottom:4px} h2{font-size:14px;margin:18px 0 8px}
+        p.sub{color:#666;margin-bottom:20px;text-transform:capitalize}
         table{width:100%;border-collapse:collapse;margin-bottom:20px}
-        th,td{border:1px solid #ccc;padding:6px 10px;font-size:13px;text-align:left}
-        th{background:#f0f0f0} .tot td{font-weight:bold}
+        th,td{border:1px solid #ccc;padding:6px 10px;font-size:12px;text-align:left}
+        th{background:#f0f0f0} td.n{text-align:right} .tot td{font-weight:bold}
       </style></head><body>
       <h1>Resumen de contabilidad — Krypton</h1>
-      <p class="sub">${esc(labelFecha())} (${fechaVista})</p>
-      <table><thead><tr><th>Tipo</th><th>Descripción</th><th>Monto</th><th>Usuario</th></tr></thead>
+      <p class="sub">${esc(tituloRango(rango, periodo))}</p>
+      ${resumenHtml}
+      <h2>Movimientos</h2>
+      <table><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Monto</th><th>Usuario</th></tr></thead>
       <tbody>${filasHtml}</tbody></table>
       <table class="tot">
-        <tr><td>Total ventas</td><td>${fmt(totales.ventas)}</td></tr>
-        <tr><td>Total gastos</td><td>${fmt(totales.gastos)}</td></tr>
-        <tr><td>Ganancia neta</td><td>${fmt(totales.neta)}</td></tr>
+        <tr><td>Total ventas</td><td class="n">${fmt(t.ventas)}</td></tr>
+        <tr><td>Total gastos</td><td class="n">${fmt(t.gastos)}</td></tr>
+        <tr><td>Ganancia neta</td><td class="n">${fmt(t.neta)}</td></tr>
       </table></body></html>`)
-    w.document.close()
-    w.focus()
-    w.print()
-    setMenuExport(false)
+    ventana.document.close()
+    ventana.focus()
+    ventana.print()
+  }
+
+  const exportar = async (formato) => {
+    setErrorExport("")
+    const rango = rangoPeriodo(fechaVista, periodoExport)
+
+    // La ventana del PDF se abre ya, dentro del clic, para que el navegador no la bloquee
+    let ventana = null
+    if (formato === "pdf") {
+      ventana = window.open("", "_blank")
+      if (!ventana) {
+        setErrorExport("El navegador bloqueó la ventana. Permite las ventanas emergentes.")
+        return
+      }
+    }
+
+    setExportando(true)
+    try {
+      const filas = await obtenerRango(rango)
+      if (filas.length === 0) {
+        ventana?.close()
+        setErrorExport("No hay movimientos en este período.")
+        return
+      }
+      if (formato === "csv") descargarCSV(filas, rango, periodoExport)
+      else imprimirPDF(ventana, filas, rango, periodoExport)
+      setMenuExport(false)
+    } catch (e) {
+      ventana?.close()
+      setErrorExport("No se pudo exportar: " + e.message)
+    } finally {
+      setExportando(false)
+    }
   }
 
   // ─── RENDER ────────────────────────────────────────────────────────
@@ -308,16 +641,12 @@ const Contabilidad = ({ usuario }) => {
           <button className="ct-icon-btn" onClick={() => cambiarFecha(-1)} aria-label="Día anterior">
             ‹
           </button>
-          <div className="ct-date-text">
-            <h1>{labelFecha()}</h1>
-            <input
-              type="date"
-              value={fechaVista}
-              max={hoyISO()}
-              onChange={(e) => e.target.value && setFechaVista(e.target.value)}
-              aria-label="Elegir fecha"
-            />
-          </div>
+          <SelectorFecha
+            valor={fechaVista}
+            max={hoyISO()}
+            onChange={setFechaVista}
+            titulo={labelFecha()}
+          />
           <button
             className="ct-icon-btn"
             onClick={() => cambiarFecha(1)}
@@ -332,18 +661,62 @@ const Contabilidad = ({ usuario }) => {
           <button className="ct-ghost" onClick={() => setMostrarPrecios(true)}>
             Tabla de precios
           </button>
-          <div className="ct-menu-wrap">
+          <div className="ct-menu-wrap" ref={exportRef}>
             <button
               className="ct-ghost"
-              onClick={() => setMenuExport((v) => !v)}
-              disabled={registros.length === 0}
+              onClick={() => {
+                setErrorExport("")
+                setMenuExport((v) => !v)
+              }}
+              aria-haspopup="dialog"
+              aria-expanded={menuExport}
             >
               Exportar
             </button>
             {menuExport && (
-              <div className="ct-menu">
-                <button onClick={exportarCSV}>Descargar CSV</button>
-                <button onClick={exportarPDF}>Imprimir / PDF</button>
+              <div className="ct-pop" role="dialog" aria-label="Exportar movimientos">
+                <p className="ct-pop-title">Exportar movimientos</p>
+
+                <div className="ct-seg ct-seg-sm" role="tablist" aria-label="Período">
+                  {[
+                    ["dia", "Día"],
+                    ["semana", "Semana"],
+                    ["mes", "Mes"],
+                  ].map(([k, l]) => (
+                    <button
+                      key={k}
+                      role="tab"
+                      aria-selected={periodoExport === k}
+                      className={periodoExport === k ? "on" : ""}
+                      onClick={() => {
+                        setPeriodoExport(k)
+                        setErrorExport("")
+                      }}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="ct-pop-range">{etiquetaRangoExport}</p>
+                {periodoExport !== "dia" && (
+                  <p className="ct-pop-hint">
+                    {periodoExport === "semana"
+                      ? "Semana de lunes a domingo que incluye el día seleccionado."
+                      : "Mes completo del día seleccionado."}
+                  </p>
+                )}
+
+                {errorExport && <p className="ct-error" role="alert">{errorExport}</p>}
+
+                <div className="ct-pop-actions">
+                  <button className="ct-ghost" disabled={exportando} onClick={() => exportar("csv")}>
+                    {exportando ? "Preparando…" : "Descargar CSV"}
+                  </button>
+                  <button className="ct-ghost" disabled={exportando} onClick={() => exportar("pdf")}>
+                    Imprimir / PDF
+                  </button>
+                </div>
               </div>
             )}
           </div>

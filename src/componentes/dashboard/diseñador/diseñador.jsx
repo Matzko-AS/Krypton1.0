@@ -10,13 +10,20 @@ import HomeDashboard from "../inicio/HomeDashboard";
 import PerfilModal from "../perfil/PerfilModal";
 import "../perfil/PerfilModal.css";
 import ChatbotWidget from "../../chatbot/ChatbotWidget";
-import { tipoMat, m2, formatoDisponible, consumoMaterial } from "../../../utils/materiales.js"
+import BuscarOrdenar from "../comunes/BuscarOrdenar";
+import { useFiltroLista, filtrarYOrdenar } from "../comunes/listaUtils";
+import {
+  tipoMat,
+  formatoDisponible,
+  consumoMaterial,
+} from "../../../utils/materiales.js";
 
 const validarTelefono = (valor) =>
   /^[0-9+\-\s]{7,15}$/.test((valor || "").trim());
 
 const DashboardDisenador = () => {
   const [seccion, setSeccion] = useState("inicio");
+  const filtro = useFiltroLista(seccion);
   const [pedidos, setPedidos] = useState([]);
   const [disenos, setDisenos] = useState([]);
   const [materiales, setMateriales] = useState([]);
@@ -65,6 +72,7 @@ const DashboardDisenador = () => {
     largo: "",
     conLaminado: false,
     laminado_id: "",
+    vinil_id: "",
     esLetrero: false,
     letrero_tipo: "",
     letrero_alto: "",
@@ -179,6 +187,7 @@ const DashboardDisenador = () => {
         largo: checked ? "" : nuevoPedido.largo,
         conLaminado: false,
         laminado_id: "",
+        vinil_id: "",
         letrero_tipo: checked ? nuevoPedido.letrero_tipo : "",
         letrero_alto: checked ? nuevoPedido.letrero_alto : "",
         letrero_largo: checked ? nuevoPedido.letrero_largo : "",
@@ -193,6 +202,7 @@ const DashboardDisenador = () => {
         material_id: nuevoValor,
         conLaminado: false,
         laminado_id: "",
+        vinil_id: "",
       });
       verificarStock(nuevoValor);
       return;
@@ -234,8 +244,18 @@ const DashboardDisenador = () => {
     const cantidad = parseInt(nuevoPedido.cantidad) || 1;
     const usaMaterial = !nuevoPedido.esLetrero && !!nuevoPedido.material_id;
 
+    // 1) Primero se definen los materiales...
+    const matPrincipal = materiales.find(
+      (m) => m.id === nuevoPedido.material_id,
+    );
+    const esPVC = usaMaterial && tipoMat(matPrincipal) === "pvc";
+
     if (usaMaterial && (!ancho || !largo)) {
       alert("Ingresa el ancho y largo del pedido (cm).");
+      return;
+    }
+    if (esPVC && !nuevoPedido.vinil_id) {
+      alert("Selecciona el vinil que se usará con el PVC.");
       return;
     }
     if (usaMaterial && nuevoPedido.conLaminado && !nuevoPedido.laminado_id) {
@@ -243,17 +263,16 @@ const DashboardDisenador = () => {
       return;
     }
 
-    // 1) Primero se definen los materiales...
-    const matPrincipal = materiales.find(
-      (m) => m.id === nuevoPedido.material_id,
-    );
+    const matVinil = esPVC
+      ? materiales.find((m) => m.id === nuevoPedido.vinil_id)
+      : null;
     const matLaminado = nuevoPedido.conLaminado
       ? materiales.find((m) => m.id === nuevoPedido.laminado_id)
       : null;
 
     // 2) ...y recién después se usan
     if (usaMaterial) {
-      const noCabe = [matPrincipal, matLaminado].filter(
+      const noCabe = [matPrincipal, matVinil, matLaminado].filter(
         (m) => m && !consumoMaterial(m, ancho, largo, cantidad).cabe,
       );
       if (noCabe.length > 0) {
@@ -271,9 +290,14 @@ const DashboardDisenador = () => {
       Number(m.area_disponible_cm2) >=
         consumoMaterial(m, ancho, largo, cantidad).area;
 
+    const todoAlcanza =
+      alcanza(matPrincipal) &&
+      (!matVinil || alcanza(matVinil)) &&
+      (!matLaminado || alcanza(matLaminado));
+
     const estadoFinal = !usaMaterial
       ? "en_diseño"
-      : alcanza(matPrincipal) && (!matLaminado || alcanza(matLaminado))
+      : todoAlcanza
         ? "en_diseño"
         : "sin_material";
 
@@ -325,6 +349,13 @@ const DashboardDisenador = () => {
           cantidad,
         },
       ];
+      if (matVinil) {
+        filas.push({
+          pedido_id: pedidoCreado.id,
+          material_id: matVinil.id,
+          cantidad,
+        });
+      }
       if (nuevoPedido.conLaminado && nuevoPedido.laminado_id) {
         filas.push({
           pedido_id: pedidoCreado.id,
@@ -715,8 +746,6 @@ const DashboardDisenador = () => {
     const entrega = new Date(fecha + "T00:00:00");
     return Math.ceil((entrega - hoy) / (1000 * 60 * 60 * 24));
   };
-  const tipoMat = (m) => (m?.tipo_material || "").toLowerCase();
-  const m2 = (cm2) => ((Number(cm2) || 0) / 10000).toFixed(2);
 
   const claseUrgencia = (fecha) => {
     const dias = diasRestantes(fecha);
@@ -727,14 +756,30 @@ const DashboardDisenador = () => {
 
   const materialSel = materiales.find((m) => m.id === nuevoPedido.material_id);
   const permiteLaminado = ["vinil", "pvc"].includes(tipoMat(materialSel));
-const consumoSel = materialSel
-  ? consumoMaterial(
-      materialSel,
-      nuevoPedido.ancho,
-      nuevoPedido.largo,
-      parseInt(nuevoPedido.cantidad) || 1,
-    )
-  : null;
+  const esPVCSel = tipoMat(materialSel) === "pvc";
+  const consumoSel = materialSel
+    ? consumoMaterial(
+        materialSel,
+        nuevoPedido.ancho,
+        nuevoPedido.largo,
+        parseInt(nuevoPedido.cantidad) || 1,
+      )
+    : null;
+
+  // Búsqueda y orden (lupa)
+  const pedidosVista = filtrarYOrdenar(
+    pedidos,
+    "pedidos",
+    filtro.q,
+    filtro.orden,
+  );
+  const disenosVista = filtrarYOrdenar(
+    disenos,
+    "disenos",
+    filtro.q,
+    filtro.orden,
+  );
+
   // ─── RENDER ─────────────────────────────────────────────────────────
 
   return (
@@ -777,8 +822,7 @@ const consumoSel = materialSel
             onClick={() => setSeccion("disenos")}
             title="Diseños"
           >
-            <img src="/iconos/diseños.svg" alt="" 
-            className="nav-icon"/>
+            <img src="/iconos/diseños.svg" alt="" className="nav-icon" />
             <span className="nav-text">Diseños</span>
           </button>
           <button
@@ -797,7 +841,6 @@ const consumoSel = materialSel
             <img src="/iconos/contabilidad.svg" alt="" className="nav-icon" />
             <span className="nav-text">Contabilidad</span>
           </button>
-
         </nav>
         <button
           className="sidebar-logout"
@@ -833,6 +876,9 @@ const consumoSel = materialSel
           </h1>
 
           <div className="header-right">
+            {["pedidos", "disenos"].includes(seccion) && (
+              <BuscarOrdenar key={seccion} tipo={seccion} {...filtro} />
+            )}
             {seccion === "pedidos" && (
               <button
                 className="btn-nuevo"
@@ -933,6 +979,10 @@ const consumoSel = materialSel
                 <p className="texto-secondary">
                   No hay pedidos registrados aún.
                 </p>
+              ) : pedidosVista.length === 0 ? (
+                <p className="texto-secondary">
+                  No se encontraron pedidos con “{filtro.q}”.
+                </p>
               ) : (
                 <div className="tabla-wrapper">
                   <table className="tabla">
@@ -947,7 +997,7 @@ const consumoSel = materialSel
                       </tr>
                     </thead>
                     <tbody>
-                      {pedidos.map((pedido) => (
+                      {pedidosVista.map((pedido) => (
                         <tr key={pedido.id}>
                           <td>{pedido.cliente_nombre || "—"}</td>
                           <td>{pedido.cliente_contacto || "—"}</td>
@@ -1032,6 +1082,10 @@ const consumoSel = materialSel
             <div className="seccion">
               {disenos.length === 0 ? (
                 <p className="texto-secondary">No hay diseños subidos aún.</p>
+              ) : disenosVista.length === 0 ? (
+                <p className="texto-secondary">
+                  No se encontraron diseños con “{filtro.q}”.
+                </p>
               ) : (
                 <div className="tabla-wrapper">
                   <table className="tabla">
@@ -1045,7 +1099,7 @@ const consumoSel = materialSel
                       </tr>
                     </thead>
                     <tbody>
-                      {disenos.map((d) => (
+                      {disenosVista.map((d) => (
                         <tr key={d.id}>
                           <td>{d.pedidos?.cliente_nombre || "—"}</td>
                           <td>
@@ -1277,6 +1331,29 @@ const consumoSel = materialSel
                       )}
                   </div>
 
+                  {/* VINIL (obligatorio cuando el material es PVC) */}
+                  {esPVCSel && (
+                    <div className="modal-field modal-field-full">
+                      <label>Vinil (se descuenta junto al PVC)</label>
+                      <select
+                        name="vinil_id"
+                        value={nuevoPedido.vinil_id || ""}
+                        onChange={handleChangePedido}
+                      >
+                        <option value="">Seleccionar vinil...</option>
+                        {materiales
+                          .filter((m) => tipoMat(m) === "vinil")
+                          .map((mat) => (
+                            <option key={mat.id} value={mat.id}>
+                              {mat.nombre}{" "}
+                              {mat.subtipo ? `(${mat.subtipo})` : ""} — Disp:{" "}
+                              {formatoDisponible(mat)}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+
                   {nuevoPedido.material_id && (
                     <>
                       <div className="modal-field">
@@ -1457,7 +1534,6 @@ const consumoSel = materialSel
           </div>
         </div>
       )}
-
 
       {/* ── MODAL EDITAR PEDIDO ───────────────────────────────────── */}
       {modalEditar && pedidoEditar && (
@@ -1796,7 +1872,7 @@ const consumoSel = materialSel
                   {new Date(pedidoVer.created_at).toLocaleDateString("es-EC")}
                 </p>
               </div>
-              
+
               {/* PRECIO / ABONO / SALDO */}
               {pedidoVer.precio_total != null && (
                 <>
