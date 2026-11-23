@@ -498,7 +498,7 @@ Deno.serve(async (req: Request) => {
   let esPublico = false;
 
   try {
-    const { mensaje, rol, usuario_id, historial, modo, conversacion_id } = await req.json();
+    const { mensaje, rol, usuario_id, historial, modo, conversacion_id, telefono_cliente } = await req.json();
 
     esPublico = modo === "cliente_publico";
     const soloDigitos = String(telefono_cliente ?? "").replace(/\D/g, "");
